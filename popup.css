@@ -1,0 +1,25 @@
+body {
+
+}
+
+form > label {
+	display: block;
+}
+
+figure {
+  text-align: center;
+
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 7px;
+}
+
+figure > img {
+  margin-bottom: 11px;
+  max-height: 400px;
+}
+
+input {
+  width: 400px;
+  margin-bottom: 13px
+}
