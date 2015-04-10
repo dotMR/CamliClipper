@@ -1,15 +1,21 @@
 /*
   TODO:
-    - validate all inputs immediately
-    - default tag from config
-    - review progress messages, add missing from server connection, remove others
-    - configurable persistence of related attributes (imgUrl, pageURL, tags) (minimize clicks)
-
+    - rewrite Server Connection to not be a global and have an instantiated variable in code (config passed in constructor)
+    - rewrite to loadConfig from storage so we have access to default tags, which fields to save, etc.
+    - rewrite calls to use sc.operation.bind(sc,params)
     - debug scope on ServerConnection - why 'this' sometimes doesn't work for props?
-    - introduce React / Flux?
     - update layout so status, fields, image fit within one view.
+    - introduce React / Flux?
+
+    - validate tags input immediately and display error in status 
+    - review progress messages, add missing from server connection, remove others
+    - review sync vs local persistence when user/password is introduced. Maybe encrypt it?
     - rethink how 'results' object is passed through chain.
+
+    - provide default tag via options
+    - configurable persistence of related attributes (imgUrl, pageURL, tags) (minimize clicks)
     - default option with no confirmation? ('Add to Camlistore' vs 'Add to Camlistore...')
+    - other content? Text, recipes - (inspect and load DOM elements?)
 */
 
 document.addEventListener('DOMContentLoaded', function() {
