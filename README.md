@@ -9,7 +9,7 @@ In addition to image upload, you can provide additional metadata for the image's
 ##Notes
 - WIP: This is a work-in-progress. See popup.js for current TODO list.
 - I've tried to conform to the full camlistore sign/upload process. But if I missed something, let me know.
-- Currently almost everything is hard-coded, so if you're not using against localhost:3179 you're going to have to modify all the functions. Working on that...
+- Currently only supports localhost auth (no user/pass or HTTPS). Provide the server URL and your publicKeyBlobref via the extension 'Options'.
 - For installation, follow the directions [here](https://developer.chrome.com/extensions/getstarted#unpacked)
 
 
