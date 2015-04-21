@@ -1,15 +1,12 @@
 /*
   TODO:
     - review progress messages, add missing from server connection, remove others
-    - provide default tag via options
-
+    - prevent attempts to save base64 until code accomodates
     - update layout so status, fields, image fit within one view - introduce React / Flux?
-
-    - fix images where url is blob data:image/jpg (google search results)
+    - add ability to save base64 encoded images (google search results)
+    - introduce username/password auth (review persistence of these values as well)
     - configurable persistence of related attributes (imgUrl, pageURL, tags) (minimize clicks)
-    - review sync vs local persistence when user/password is introduced. Maybe encrypt it?
     - default option with no confirmation? ('Add to Camlistore' vs 'Add to Camlistore...')
-    - other content? Text, recipes - (inspect and load DOM elements?)
 */
 
 var sc;
@@ -23,22 +20,32 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
+/**
+ * Retrieve saved 'options' from chrome storage
+ * @return {JSON} persisted values. The following parameters are currently used:
+ *      url:          URL of Camlistore server
+ *      defaultTags:  Default tag values for input form
+ */
 function fetchOptions() {
   return new Promise(function(resolve, reject) {
-    resolve('http://localhost:3179');
-    // chrome.storage.sync.get(null, function(items) {
-    //   if (chrome.runtime.lastError) {
-    //     reject(Error('error retrieving config from storage')); // TODO: how to test???
-    //   }
-    //   resolve(items.serverUrl);
-    // });
+    chrome.storage.sync.get(null, function(items) {
+      if (chrome.runtime.lastError) {
+        reject(Error('error retrieving config from storage')); // TODO: how to test???
+      }
+      resolve(items);
+    });
   });
 }
 
-function initializeServerConnection(url) {
+/**
+ * Initialize connection to Camlistore blob server
+ * @param {JSON} 'options' persisted values from chrome storage
+ *    required: options.url
+ */
+function initializeServerConnection(options) {
   return new Promise(function(resolve, reject) {
     var request = new XMLHttpRequest();
-    request.open('GET', url);
+    request.open('GET', options.url);
     request.setRequestHeader("Accept", "text/x-camli-configuration");
 
     request.onreadystatechange = function() {
@@ -46,8 +53,8 @@ function initializeServerConnection(url) {
           if (request.status === 200) {
             var json = JSON.parse(request.responseText);
             if (json) {
-              sc = new cam.ServerConnection(url, json);
-              resolve(sc);
+              sc = new cam.ServerConnection(options.url, json);
+              resolve(options);
             }
             reject(Error('Invalid server discovery data'))
           }
@@ -62,7 +69,12 @@ function initializeServerConnection(url) {
   });
 }
 
-function initializePageElements(data) {
+/**
+ * Initialize page elements
+ * @param {JSON} 'options' persisted values from chrome storage
+ *    required: options.defaultTags
+ */
+function initializePageElements(options) {
   var form = document.getElementById('uploadForm');
   form.addEventListener('submit', onSubmit, false);
 
@@ -88,6 +100,7 @@ function initializePageElements(data) {
   document.getElementById('figure-target').appendChild(figure);
   document.getElementById('imageSrc').value = imgSrc;
   document.getElementById('pageSrc').value = pageSrc;
+  document.getElementById('tags').value = options.defaultTags;
 
   return Promise.resolve('Page initialized');
 }
