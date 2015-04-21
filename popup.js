@@ -1,44 +1,64 @@
 /*
   TODO:
-    - rewrite Server Connection to not be a global and have an instantiated variable in code (config passed in constructor)
-    - rewrite to loadConfig from storage so we have access to default tags, which fields to save, etc.
-    - rewrite calls to use sc.operation.bind(sc,params)
-    - debug scope on ServerConnection - why 'this' sometimes doesn't work for props?
-    - update layout so status, fields, image fit within one view.
-    - introduce React / Flux?
-
-    - validate tags input immediately and display error in status 
     - review progress messages, add missing from server connection, remove others
-    - review sync vs local persistence when user/password is introduced. Maybe encrypt it?
-    - rethink how 'results' object is passed through chain.
-
     - provide default tag via options
+
+    - update layout so status, fields, image fit within one view - introduce React / Flux?
+
+    - fix images where url is blob data:image/jpg (google search results)
     - configurable persistence of related attributes (imgUrl, pageURL, tags) (minimize clicks)
+    - review sync vs local persistence when user/password is introduced. Maybe encrypt it?
     - default option with no confirmation? ('Add to Camlistore' vs 'Add to Camlistore...')
     - other content? Text, recipes - (inspect and load DOM elements?)
 */
 
-document.addEventListener('DOMContentLoaded', function() {
+var sc;
 
-  fetchConfig().then(function(config) {
-    ServerConnection.initialize(config)
-  }).then(initializePageElements)
+document.addEventListener('DOMContentLoaded', function() {
+  fetchOptions()
+  .then(initializeServerConnection)
+  .then(initializePageElements)
   .catch(function(error) {
-    updateProgress("Error initializing connection: ", error);
+    updateProgress("Error initializing component: ", error);
   });
 });
 
-function fetchConfig() {
+function fetchOptions() {
   return new Promise(function(resolve, reject) {
-    chrome.storage.sync.get(null, function(items) {
-      if (chrome.runtime.lastError) {
-        reject(Error('error retrieving config from storage')); // TODO: how to test???
+    resolve('http://localhost:3179');
+    // chrome.storage.sync.get(null, function(items) {
+    //   if (chrome.runtime.lastError) {
+    //     reject(Error('error retrieving config from storage')); // TODO: how to test???
+    //   }
+    //   resolve(items.serverUrl);
+    // });
+  });
+}
+
+function initializeServerConnection(url) {
+  return new Promise(function(resolve, reject) {
+    var request = new XMLHttpRequest();
+    request.open('GET', url);
+    request.setRequestHeader("Accept", "text/x-camli-configuration");
+
+    request.onreadystatechange = function() {
+      if (request.readyState === 4) {
+          if (request.status === 200) {
+            var json = JSON.parse(request.responseText);
+            if (json) {
+              sc = new cam.ServerConnection(url, json);
+              resolve(sc);
+            }
+            reject(Error('Invalid server discovery data'))
+          }
       }
-      resolve({
-        server_url: items.serverUrl,
-        public_key_blobref: items.publicKey
-      });
-    });
+    }.bind(this);
+
+    request.onerror = function() {
+      reject(Error('Network error discovering server'));
+    };
+
+    request.send();
   });
 }
 
@@ -112,30 +132,46 @@ function getPageUrl() {
 }
 
 function getTags() {
-  return document.getElementById('tags').value;
-}
-
-function validate() {
-  // TODO
-  // no fields are required
-  // tags field must be a valid list
+  var tagsAsString = document.getElementById('tags').value;
+  var tags = tagsAsString.split(',').map(function(s) { return s.trim(); });
+  return tags;
 }
 
 function onSubmit(event) {
   resetProgress();
 
-  validate();
-
-  uploadImage(fetchImage(getImageSrc()))
-  .then(createPermanode)
-  .then(addCamliContentRef)
-  .then(addRelatedAttributes)
-  .catch(function(error) {
-    console.log("Found error: ", error);
-    updateProgress(error);
-  });
+  if (!validateFields()) {
+    uploadImage(fetchImage(getImageSrc()))
+    .then(createPermanode)
+    .then(addCamliContentRef)
+    .then(addImageSrcAttribute)
+    .then(addPageSrcAttribute)
+    .then(addTags)
+    .catch(function(error) {
+      console.log("Found error: ", error);
+      updateProgress(error);
+    });
+  } else {
+    updateProgress('At least one invalid tag was supplied')
+  }
 
   event.preventDefault();
+}
+
+function validateFields() {
+  updateProgress('Validating form');
+  return !this.areTagsValid();
+}
+
+function areTagsValid() {
+  var tags = document.getElementById('tags').value;
+
+  if (tags) {
+    var arTags = tags.split(',').map(function(s) { return s.trim(); });
+    return !arTags.some(function(t) { return !t });
+  }
+
+  return true;
 }
 
 function uploadImage(fetchDataPromise) {
@@ -224,7 +260,7 @@ function checkForDuplicate(results) {
 
 function doUpload(results) {
   updateProgress('Uploading image');
-  return ServerConnection.uploadBlob(results.blob).then(
+  return sc.uploadBlob(results.blob).then(
     function(ref) {
       // capture fileRef returned from upload
       results.fileref = ref;
@@ -241,7 +277,9 @@ function createPermanode(results) {
     "random": "" + Math.random()
   };
 
-  return ServerConnection.signObject(permanode).then(ServerConnection.uploadString).then(
+  return sc.signObject(permanode)
+  .then(sc.uploadString.bind(sc))
+  .then(
     function(data) {
       results.permanoderef = data
       return results;
@@ -250,63 +288,36 @@ function createPermanode(results) {
 
 function addCamliContentRef(results) {
   updateProgress('Adding camliContent');
-  return ServerConnection.updatePermanodeAttr(results.permanoderef, "set-attribute", "camliContent", results.fileref).then(
+  return sc.updatePermanodeAttr(results.permanoderef, "set-attribute", "camliContent", results.fileref).then(
     function(data) {
       return results;
     });
 }
 
-function addRelatedAttributes(results) {
-
-  var imgSrc = ServerConnection.updatePermanodeAttr(results.permanoderef, "set-attribute", "imgSrc", getImageSrc());
-  var pageSrc = ServerConnection.updatePermanodeAttr(results.permanoderef, "set-attribute", "found", getPageUrl());
-  var promises = [imgSrc, pageSrc];
-
-  var tags = getTags().split(',').map(function(s) { return s.trim(); });
-  if (tags.some(function(t) { return !t })) {
-    // TODO: Should validate fields first and reject immediately
-    console.log('Tag validation error!')
-  } else {
-    tags.forEach(function(tag) {
-      promises.push(ServerConnection.updatePermanodeAttr(results.permanoderef, "add-attribute", "tag", tag));
-    })
-  }
-
-  return Promise.all(promises).then(
+function addImageSrcAttribute(results) {
+  updateProgress('Adding imageSrc');
+  return sc.updatePermanodeAttr(results.permanoderef, "set-attribute", "imgSrc", getImageSrc()).then(
     function(data) {
       return results;
     });
 }
 
-// Format |dateVal| as specified by RFC 3339.
-function dateToRfc3339String(dateVal) {
-  // Return a string containing |num| zero-padded to |length| digits.
-  var pad = function(num, length) {
-    var numStr = "" + num;
-    while (numStr.length < length) {
-      numStr = "0" + numStr;
+function addPageSrcAttribute(results) {
+  updateProgress('Adding pageSrc');
+  return sc.updatePermanodeAttr(results.permanoderef, "set-attribute", "foundAt", getPageUrl()).then(
+    function(data) {
+      return results;
+    });
+}
+
+function addTags(results) {
+  updateProgress('Adding tags');
+  this.getTags().forEach(function(tag) {
+    if (tag) {
+      sc.updatePermanodeAttr(results.permanoderef, "add-attribute", "tag", tag)
     }
-    return numStr;
-  };
-
-  // thanks: http://stackoverflow.com/questions/7975005/format-a-string-using-placeholders-and-an-object-of-substitutions
-  var subs = {
-    "%UTC_YEAR%":     dateVal.getUTCFullYear(),
-    "%UTC_MONTH%":    pad(dateVal.getUTCMonth() + 1, 2),
-    "%UTC_DATE%":     pad(dateVal.getUTCDate(), 2),
-    "%UTC_HOURS%":    pad(dateVal.getUTCHours(), 2),
-    "%UTC_MINS%":     pad(dateVal.getUTCMinutes(), 2),
-    "%UTC_SECONDS%":  pad(dateVal.getUTCSeconds(), 2),
-  };
-
-  var formatted = "%UTC_YEAR%-%UTC_MONTH%-%UTC_DATE%T%UTC_HOURS%:%UTC_MINS%:%UTC_SECONDS%Z";
-
-  formatted = formatted.replace(/%\w+%/g, function(all) {
-     return subs[all] || all;
-  });
-
-  return formatted;
-};
+  })
+}
 
 /**
  * Request to load a url as a 'blob'

@@ -1,36 +1,31 @@
+var cam = cam || {};
+cam.ServerConnection = cam.ServerConnection || {};
+
 /* 
- * Constructor - no need to invoke directly, call init instead.
  * @constructor
- * @param {String} server_url The URL for the Camlistore server.
- * @param {String} publicKeyRef Your public key blob ref to use for uploads.
- */
-function ServerConnection(url, publicKeyRef) {
-  this.server_url = url;
-
-  // TODO: query and pull these from discovery doc
-  this.public_key_blobref = publicKeyRef;
-  this.SIGN_URL = '/sighelper/camli/sig/sign';
-  this.UPLOAD_URL = '/bs-recv/camli/upload';
-  this.UPLOAD_HELPER_URL = '/ui/?camli.mode=uploadhelper'
-};
-
-/*******************************************************************************
- * PUBLIC API METHODS
- ******************************************************************************/
-
-/**
- * Initializes the connection to the server.
- *  NOTE: This MUST be called before making any other requests!
+ * Connection to the Camlistore blob server and API for the RPCs it provides. All code should use this connection to contact the server.
  *
- * @param {Object} config parameters in a JavaScript object.
- *     The following parameters are recognized:
- *         "server_url" {String} The URL for the Camlistore server.
- *         "public_key_blobref" {String} Your public key blob ref to use for uploads.
- * @return {ServerConnection} An initialized ServerConnection object.
+ * @param {String} url The URL for the Camlistore server.
+ * @param {JSON} config Discovery document for the current server (https://github.com/camlistore/camlistore/blob/master/doc/protocol/discovery.txt)
+ *    The following parameters are required:
+ *        config.blobRoot, eg: "/bs-and-maybe-also-index/"
+ *        config.signing.publicKeyBlobRef, eg: "sha1-xx...x"
+ *        config.signing.signHandler, eg: "/sighelper/camli/sig/sign"
+ *        config.uploadHelper, eg: "/ui/?camli.mode=uploadhelper"
  */
-ServerConnection.initialize = function(config) {
-    window.ServerConnection = new ServerConnection(config.server_url, config.public_key_blobref);
-};
+cam.ServerConnection = function(url, config) {
+  this.server_url_ = url;
+  this.config_ = config
+
+  this.signHandler_ = config.signing.signHandler;
+  this.uploadHandler_ = config.blobRoot + "camli/upload"
+  this.uploadHelper_ = config.uploadHelper;
+
+  this.PUBLIC_KEY_BLOB_REF = config.signing.publicKeyBlobRef;
+  this.UPLOAD_HANDLER = this.server_url_ + this.uploadHandler_;
+  this.UPLOAD_HELPER = this.server_url_ + this.uploadHelper_;
+  this.SIGN_HANDLER = this.server_url_ + this.signHandler_;
+}
 
 /**
  * Request to Camlistore server to sign an object before upload
@@ -41,18 +36,18 @@ ServerConnection.initialize = function(config) {
  * @param {string} value for attribute.
  * @return {Promise} Promise of JSON confirmation.
  */
-ServerConnection.prototype.updatePermanodeAttr = function(blobref, claimType, attribute, value) {
-  var setAttribute = {
+cam.ServerConnection.prototype.updatePermanodeAttr = function(blobref, claimType, attribute, value) {
+  var json = {
     "camliVersion": 1,
     "camliType": "claim",
     "permaNode": blobref,
     "claimType": claimType,
-    "claimDate": dateToRfc3339String(new Date()),
+    "claimDate": this.dateToRfc3339String_(new Date()),
     "attribute": attribute,
     "value": value
   };
 
-  return ServerConnection.signObject(setAttribute).then(ServerConnection.uploadString);
+  return this.signObject(json).then(this.uploadString.bind(this));
 }
 
 /**
@@ -61,10 +56,10 @@ ServerConnection.prototype.updatePermanodeAttr = function(blobref, claimType, at
  * @param {Object} clearObj Unsigned object.
  * @return {Promise} Promise of signed object.
  */
-ServerConnection.prototype.signObject = function(clearObj) {
+cam.ServerConnection.prototype.signObject = function(clearObj) {
 
   function sign(clearObj, resolve, reject) {
-    clearObj.camliSigner = ServerConnection.public_key_blobref; // TODO: debug scope that prevents me from using 'this'
+    clearObj.camliSigner = this.PUBLIC_KEY_BLOB_REF;
     var camVersion = clearObj.camliVersion;
     if (camVersion) {
        delete clearObj.camliVersion;
@@ -75,7 +70,7 @@ ServerConnection.prototype.signObject = function(clearObj) {
     }
 
     var request = new XMLHttpRequest();
-    request.open("POST", ServerConnection.server_url + ServerConnection.SIGN_URL); // TODO: debug scope that prevents me from using 'this'
+    request.open("POST", this.SIGN_HANDLER);
     request.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
     var data = "json=" + encodeURIComponent(clearText);
 
@@ -106,7 +101,7 @@ ServerConnection.prototype.signObject = function(clearObj) {
  * @param {string} s String to upload.
  * @return {Promise} Promise of JSON confirmation.
  */
-ServerConnection.prototype.uploadString = function(s) {
+cam.ServerConnection.prototype.uploadString = function(s) {
 
   function upload(s, resolve, reject) {
     var byteArray = Crypto.charenc.UTF8.stringToBytes(s);
@@ -117,7 +112,7 @@ ServerConnection.prototype.uploadString = function(s) {
     fd.append(blobref, bb);
 
     var request = new XMLHttpRequest();
-    request.open("POST", ServerConnection.server_url + ServerConnection.UPLOAD_URL); // TODO: debug scope that prevents me from using 'this'
+    request.open("POST", this.UPLOAD_HANDLER);
 
     request.onreadystatechange = function () {
       if (request.readyState === 4) {
@@ -148,14 +143,14 @@ ServerConnection.prototype.uploadString = function(s) {
  * @param {blob} Blob to upload.
  * @return {Promise} Promise of JSON confirmation.
  */
-ServerConnection.prototype.uploadBlob = function(blob) {
+cam.ServerConnection.prototype.uploadBlob = function(blob) {
 
   function upload(blob, resolve, request) {
     var fd = new FormData();
     fd.append("blob", blob, "filename");
 
     var request = new XMLHttpRequest();
-    request.open("POST", ServerConnection.server_url + ServerConnection.UPLOAD_HELPER_URL); // TODO: debug scope that prevents me from using 'this'
+    request.open("POST", this.UPLOAD_HELPER);
 
     request.onreadystatechange = function () {
         if (request.readyState === 4) {
@@ -180,7 +175,34 @@ ServerConnection.prototype.uploadBlob = function(blob) {
   return new Promise(upload.bind(this, blob));
 };
 
-/*******************************************************************************
-* PRIVATE API METHODS
-* Used by the library.  There should be no need to call these methods directly.
-*******************************************************************************/
+/**
+ * Format |dateVal| as specified by RFC 3339.
+ */
+cam.ServerConnection.prototype.dateToRfc3339String_ = function(dateVal) {
+  // Return a string containing |num| zero-padded to |length| digits.
+  var pad = function(num, length) {
+    var numStr = "" + num;
+    while (numStr.length < length) {
+      numStr = "0" + numStr;
+    }
+    return numStr;
+  };
+
+  // thanks: http://stackoverflow.com/questions/7975005/format-a-string-using-placeholders-and-an-object-of-substitutions
+  var subs = {
+    "%UTC_YEAR%":     dateVal.getUTCFullYear(),
+    "%UTC_MONTH%":    pad(dateVal.getUTCMonth() + 1, 2),
+    "%UTC_DATE%":     pad(dateVal.getUTCDate(), 2),
+    "%UTC_HOURS%":    pad(dateVal.getUTCHours(), 2),
+    "%UTC_MINS%":     pad(dateVal.getUTCMinutes(), 2),
+    "%UTC_SECONDS%":  pad(dateVal.getUTCSeconds(), 2),
+  };
+
+  var formatted = "%UTC_YEAR%-%UTC_MONTH%-%UTC_DATE%T%UTC_HOURS%:%UTC_MINS%:%UTC_SECONDS%Z";
+
+  formatted = formatted.replace(/%\w+%/g, function(all) {
+     return subs[all] || all;
+  });
+
+  return formatted;
+};
