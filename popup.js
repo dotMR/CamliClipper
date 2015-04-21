@@ -2,10 +2,14 @@
   TODO:
     - review progress messages, add missing from server connection, remove others
     - update layout so status, fields, image fit within one view - introduce React / Flux?
-    - add ability to save base64 encoded images (google search results)
-    - introduce username/password auth (review persistence of these values as well)
-    - configurable persistence of related attributes (imgUrl, pageURL, tags) (minimize clicks)
-    - default option with no confirmation? ('Add to Camlistore' vs 'Add to Camlistore...')
+
+  ENHANCEMENTS:
+    - Support storage of base64-encoded images (like in google image search results)
+    - Support basic username/password auth
+        - review storage of sensitive information with this
+    - Configurable persistence of related attributes?
+        - in options you save the defaults you want (only save pageURl, and always add this)
+        - add another express option to the menu ('Add to Camlistore' vs 'Add to Camlistore...') which just uses defaults (minimize clicks)
 */
 
 var sc;
