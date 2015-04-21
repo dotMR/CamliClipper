@@ -184,7 +184,7 @@ cam.ServerConnection.prototype.uploadBlob = function(blob) {
  */
 cam.ServerConnection.prototype.findExisting = function(blobref) {
 
-  function findExisting(blobref, resolve, request) {
+  function findExisting(blobref, resolve, reject) {
     var endpoint = this.SEARCH_ROOT + '?wholedigest=' + blobref;
     var request = new XMLHttpRequest();
     request.open('GET', endpoint);
@@ -197,7 +197,7 @@ cam.ServerConnection.prototype.findExisting = function(blobref) {
               if (json.files.length == 0) {
                 resolve(json);
               } else {
-                reject(Error('Blobref already exists'));
+                reject(Error('Item already exists'));
               }
             }
           }

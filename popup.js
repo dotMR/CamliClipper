@@ -1,6 +1,6 @@
 /*
   TODO:
-    - review progress messages, add missing from server connection, remove others
+    - refactor tag promises so we have access to callback for each (and log ref)
     - update layout so status, fields, image fit within one view - introduce React / Flux?
 
   ENHANCEMENTS:
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
   .then(initializeServerConnection)
   .then(initializePageElements)
   .catch(function(error) {
-    updateProgress("Error initializing component: ", error);
+    setStatus("Error initializing component: ", error);
   });
 });
 
@@ -31,9 +31,9 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 function fetchOptions() {
   return new Promise(function(resolve, reject) {
-    chrome.storage.sync.get(null, function(items) {
+    chrome.storage.sync.get(['url', 'defaultTags'], function(items) {
       if (chrome.runtime.lastError) {
-        reject(Error('error retrieving config from storage')); // TODO: how to test???
+        reject(Error('error retrieving config from storage')); // TODO: how to test error condition
       }
       resolve(items);
     });
@@ -56,6 +56,7 @@ function initializeServerConnection(options) {
           if (request.status === 200) {
             var json = JSON.parse(request.responseText);
             if (json) {
+              console.log('initializing connection to: ' + options.url);
               sc = new cam.ServerConnection(options.url, json);
               resolve(options);
             }
@@ -120,18 +121,9 @@ function getUrlParam(variable)
    return(false);
 }
 
-function updateStatusElement(message) {
+function setStatus(message) {
   var status = document.getElementById("status");
-  var text = document.createTextNode(message);
-
-  var item = document.createElement('li');
-  item.appendChild(text);
-  status.appendChild(item);
-}
-
-function updateProgress(message) {
-  console.log(message);
-  updateStatusElement(message);
+  status.textContent = message;
 }
 
 function resetProgress() {
@@ -164,12 +156,13 @@ function onSubmit(event) {
     .then(addImageSrcAttribute)
     .then(addPageSrcAttribute)
     .then(addTags)
+    .then(onFinish)
     .catch(function(error) {
       console.log("Found error: ", error);
-      updateProgress(error);
+      setStatus(error);
     });
   } else {
-    updateProgress(error);
+    setStatus(error);
   }
 
   event.preventDefault();
@@ -203,7 +196,7 @@ function uploadImage(fetchDataPromise) {
 }
 
 function fetchImage(url) {
-  updateProgress('Fetching image');
+  console.log('fetching image from: ' + url);
   return getAsBlob(url)
     .then(captureBlobAndComputeRef)
     .then(assembleResults);
@@ -222,13 +215,13 @@ function convertToTypedArray(blob) {
 
     reader.onload = function() {
       if (reader.readyState === 2) {
-        this.updateProgress('Blob converted to byte array');
+        console.log('blob converted to typed array');
         resolve(reader.result);
       }
     }.bind(this);
 
     reader.onerror = function() {
-      reject(Error('There was an error converting to typed array'));
+      reject(Error('There was an error converting the image blob to a typed array'));
     }
 
     reader.readAsArrayBuffer(blob);
@@ -238,7 +231,7 @@ function convertToTypedArray(blob) {
 function generateHash(arrayBuffer) {
   var bytes = new Uint8Array(arrayBuffer);
   var blobref = 'sha1-' + Crypto.SHA1(bytes);
-  updateProgress('Hash computed from byte array: ' + blobref);
+  console.log('hash computed: ' + blobref);
   return blobref;
 }
 
@@ -251,7 +244,7 @@ function assembleResults(results) {
 }
 
 function checkForDuplicate(results) {
-  updateProgress('Checking for duplicate');
+  console.log('checking for duplicates');
   return sc.findExisting(results.blobref).then(
     function(json) {
       return results;
@@ -259,18 +252,16 @@ function checkForDuplicate(results) {
 }
 
 function doUpload(results) {
-  updateProgress('Uploading image');
   return sc.uploadBlob(results.blob).then(
     function(ref) {
       // capture fileRef returned from upload
+      console.log('blob uploaded: ' + ref);
       results.fileref = ref;
       return results;
     });
 }
 
 function createPermanode(results) {
-  updateProgress('Creating permanode');
-
   var permanode = {
     "camliVersion": 1,
     "camliType": "permanode",
@@ -281,42 +272,47 @@ function createPermanode(results) {
   .then(sc.uploadString.bind(sc))
   .then(
     function(data) {
+      console.log('permanode created: ' + data);
       results.permanoderef = data
       return results;
   });
 }
 
 function addCamliContentRef(results) {
-  updateProgress('Adding camliContent');
   return sc.updatePermanodeAttr(results.permanoderef, "set-attribute", "camliContent", results.fileref).then(
     function(data) {
+      console.log('camliContent attribute added: ' + data);
       return results;
     });
 }
 
 function addImageSrcAttribute(results) {
-  updateProgress('Adding imageSrc');
   return sc.updatePermanodeAttr(results.permanoderef, "set-attribute", "imgSrc", getImageSrc()).then(
     function(data) {
+      console.log('imgSrc attribute added: ' + data);
       return results;
     });
 }
 
 function addPageSrcAttribute(results) {
-  updateProgress('Adding pageSrc');
   return sc.updatePermanodeAttr(results.permanoderef, "set-attribute", "foundAt", getPageUrl()).then(
     function(data) {
+      console.log('foundAt attribute added: ' + data);
       return results;
     });
 }
 
 function addTags(results) {
-  updateProgress('Adding tags');
   this.getTags().forEach(function(tag) {
     if (tag) {
-      sc.updatePermanodeAttr(results.permanoderef, "add-attribute", "tag", tag)
+      sc.updatePermanodeAttr(results.permanoderef, "add-attribute", "tag", tag);
+      console.log('tag added: ' + tag);
     }
   })
+}
+
+function onFinish() {
+  setStatus('Success!');
 }
 
 /**
@@ -333,7 +329,6 @@ function getAsBlob(url) {
 
     request.onload = function() {
       if (request.status === 200) {
-        this.updateProgress('Blob loaded');
         resolve(request.response);
       } else {
         reject(Error('Blob didn\'t load successfully; error:' + request.statusText));
