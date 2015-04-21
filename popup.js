@@ -1,6 +1,6 @@
 /*
   TODO:
-    - refactor tag promises so we have access to callback for each (and log ref)
+    - validate all refs logged to console (missing any?)
     - update layout so status, fields, image fit within one view - introduce React / Flux?
 
   ENHANCEMENTS:
@@ -303,12 +303,19 @@ function addPageSrcAttribute(results) {
 }
 
 function addTags(results) {
+  var promises = [];
   this.getTags().forEach(function(tag) {
     if (tag) {
-      sc.updatePermanodeAttr(results.permanoderef, "add-attribute", "tag", tag);
-      console.log('tag added: ' + tag);
+      promises.push(sc.updatePermanodeAttr(results.permanoderef, "add-attribute", "tag", tag));
     }
-  })
+  });
+
+  return Promise.all(promises).then(function(results) {
+    results.forEach(function(ref) {
+      console.log('tag attributed added: ' + ref);
+    });
+    return results;
+  });
 }
 
 function onFinish() {
