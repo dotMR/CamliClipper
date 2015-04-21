@@ -1,7 +1,6 @@
 /*
   TODO:
     - review progress messages, add missing from server connection, remove others
-    - prevent attempts to save base64 until code accomodates
     - update layout so status, fields, image fit within one view - introduce React / Flux?
     - add ability to save base64 encoded images (google search results)
     - introduce username/password auth (review persistence of these values as well)
@@ -153,7 +152,8 @@ function getTags() {
 function onSubmit(event) {
   resetProgress();
 
-  if (!validateFields()) {
+  var error = validateForm();
+  if(!error) {
     uploadImage(fetchImage(getImageSrc()))
     .then(createPermanode)
     .then(addCamliContentRef)
@@ -165,26 +165,31 @@ function onSubmit(event) {
       updateProgress(error);
     });
   } else {
-    updateProgress('At least one invalid tag was supplied')
+    updateProgress(error);
   }
 
   event.preventDefault();
 }
 
-function validateFields() {
-  updateProgress('Validating form');
-  return !this.areTagsValid();
-}
-
-function areTagsValid() {
-  var tags = document.getElementById('tags').value;
-
-  if (tags) {
-    var arTags = tags.split(',').map(function(s) { return s.trim(); });
-    return !arTags.some(function(t) { return !t });
+function validateForm() {
+  // validate imageSource
+  var encoded = getImageSrc().startsWith('data:');
+  if (encoded) {
+    return 'Encoded images are not currently supported';
   }
 
-  return true;
+  // validate tags
+  var tags = document.getElementById('tags').value;
+  if (tags) {
+    var arTags = tags.split(',').map(function(s) { return s.trim(); });
+    var invalid = arTags.some(function(t) { return !t });
+
+    if (invalid) {
+      return 'At least one invalid tag was supplied';
+    }
+  }
+
+  return '';
 }
 
 function uploadImage(fetchDataPromise) {
@@ -242,33 +247,11 @@ function assembleResults(results) {
 }
 
 function checkForDuplicate(results) {
-  return new Promise(function(resolve, reject) {
-    var url = 'http://localhost:3179/my-search/camli/search/files?' + 'wholedigest=' + results.blobref;
-    var request = new XMLHttpRequest();
-    request.open('GET', url);
-
-    request.onreadystatechange = function() {
-      if (request.readyState === 4) {
-          if (request.status === 200) {
-            var json = JSON.parse(request.responseText);
-            if (json.files) {
-              if (json.files.length == 0) {
-                this.updateProgress('Image does not already exist');
-                resolve(results);
-              } else {
-                reject(Error('Image already uploaded'));
-              }
-            }
-          }
-      }
-    }.bind(this);
-
-    request.onerror = function() {
-      reject(Error('Network error'));
-    };
-
-    request.send();
-  });
+  updateProgress('Checking for duplicate');
+  return sc.findExisting(results.blobref).then(
+    function(json) {
+      return results;
+    });
 }
 
 function doUpload(results) {

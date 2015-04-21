@@ -18,13 +18,15 @@ cam.ServerConnection = function(url, config) {
   this.config_ = config
 
   this.signHandler_ = config.signing.signHandler;
-  this.uploadHandler_ = config.blobRoot + "camli/upload"
+  this.uploadHandler_ = config.blobRoot + 'camli/upload';
   this.uploadHelper_ = config.uploadHelper;
+  this.searchRoot_ = config.searchRoot + 'camli/search/files';
 
   this.PUBLIC_KEY_BLOB_REF = config.signing.publicKeyBlobRef;
   this.UPLOAD_HANDLER = this.server_url_ + this.uploadHandler_;
   this.UPLOAD_HELPER = this.server_url_ + this.uploadHelper_;
   this.SIGN_HANDLER = this.server_url_ + this.signHandler_;
+  this.SEARCH_ROOT = this.server_url_ + this.searchRoot_;
 }
 
 /**
@@ -157,7 +159,6 @@ cam.ServerConnection.prototype.uploadBlob = function(blob) {
             if (request.status === 200) {
               var got = JSON.parse(request.responseText).got;
               var fileRef = got[0].fileref
-              // this.updateProgress('Blob uploaded: ' + fileRef); //TODO: move to UI
               resolve(fileRef);
             } else {
               reject(Error(request.statusText));
@@ -174,6 +175,44 @@ cam.ServerConnection.prototype.uploadBlob = function(blob) {
 
   return new Promise(upload.bind(this, blob));
 };
+
+/**
+ * Upload a blob to Camlistore server
+ *
+ * @param {blobref} blobref to check if exists already.
+ * @return {Promise} Promise of JSON confirmation.
+ */
+cam.ServerConnection.prototype.findExisting = function(blobref) {
+
+  function findExisting(blobref, resolve, request) {
+    var endpoint = this.SEARCH_ROOT + '?wholedigest=' + blobref;
+    var request = new XMLHttpRequest();
+    request.open('GET', endpoint);
+
+    request.onreadystatechange = function() {
+      if (request.readyState === 4) {
+          if (request.status === 200) {
+            var json = JSON.parse(request.responseText);
+            if (json.files) {
+              if (json.files.length == 0) {
+                resolve(json);
+              } else {
+                reject(Error('Blobref already exists'));
+              }
+            }
+          }
+      }
+    }.bind(this);
+
+    request.onerror = function() {
+      reject(Error('Network error'));
+    };
+
+    request.send();
+  }
+
+  return new Promise(findExisting.bind(this, blobref));
+}
 
 /**
  * Format |dateVal| as specified by RFC 3339.
