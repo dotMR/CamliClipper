@@ -1,10 +1,9 @@
 /*
   TODO:
-    - only initial values from form are used when saving (pulling from props rather than current)
-    - set status from popup page (when loading options), or move this to main component as well?_
     - validate all refs logged to console (missing any?)
     - update layout so status, fields, image fit within one view
     - improve error validation (indicate problem at field, differentiate color)
+    - set status from popup page (when loading options), or move this to main component as well?_
     - introduce Flux concepts to app functionality
     - move ServerConnection init into ServerConnection (pass a URL?)
 
@@ -20,17 +19,17 @@
         - add another express option to the menu ('Add to Camlistore' vs 'Add to Camlistore...') which just uses defaults (minimize clicks)
 */
 
-var sc;
-
-document.addEventListener('DOMContentLoaded', function() {
+function onDOMContentLoaded() {
   fetchOptions()
-  .then(initializeServerConnection)
+  .then(discoverServer)
   .then(initializePageElements)
   .catch(function(error) {
     alert(error.message);
-    // setStatus(error.message);
+    // setStatus(error.message); // TODO: how to set error message - move to lower level?
   });
-});
+}
+
+document.addEventListener('DOMContentLoaded', onDOMContentLoaded);
 
 /**
  * Retrieve saved 'options' from chrome storage
@@ -50,11 +49,11 @@ function fetchOptions() {
 }
 
 /**
- * Initialize connection to Camlistore blob server
+ * Retrieve discovery document from Camlistore blob server
  * @param {JSON} 'options' persisted values from chrome storage
  *    required: options.url
  */
-function initializeServerConnection(options) {
+function discoverServer(options) {
   return new Promise(function(resolve, reject) {
     var request = new XMLHttpRequest();
     request.open('GET', options.url);
@@ -65,9 +64,13 @@ function initializeServerConnection(options) {
           if (request.status === 200) {
             var json = JSON.parse(request.responseText);
             if (json) {
-              console.log('initializing connection to: ' + options.url);
-              sc = new cam.ServerConnection(options.url, json);
-              resolve(options);
+              console.log('retrieved camlistore server discovery data from: ' + options.url);
+              var results = {
+                'discovery': json,
+                'options': options,
+                'url': options.url
+              };
+              resolve(results);
             }
             reject(Error('Invalid server discovery data'))
           }
@@ -84,18 +87,20 @@ function initializeServerConnection(options) {
 
 /**
  * Initialize page elements
- * @param {JSON} 'options' persisted values from chrome storage
- *    required: options.defaultTags
+ * @param {JSON} 'results' bundled data from discovery process
+ *    required: discovery (doc from camlistore server)
+ *              options   (persisted options)
  */
-function initializePageElements(options) {
+function initializePageElements(results) {
+
   React.render(
       React.createElement(Popup,
         {
           imgSrc: getUrlParam('imgSrc'),
           pageSrc: getUrlParam('pageSrc'),
           statusMessage: 'Status',
-          serverConnection: sc,
-          tags: options.defaultTags
+          serverConnection: new cam.ServerConnection(results.url, results.discovery),
+          tags: results.options.defaultTags
         }),
       document.getElementById('root')
   );
@@ -114,8 +119,3 @@ function getUrlParam(variable)
    }
    return(false);
 }
-
-// function setStatus(message) {
-//   var status = document.getElementById("status");
-//   status.textContent = message;
-// }

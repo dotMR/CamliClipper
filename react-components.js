@@ -10,7 +10,6 @@ var Popup = React.createClass({
 
     propTypes: {
         imgSrc: React.PropTypes.string.isRequired,
-        onFormSubmit: React.PropTypes.func,
         pageSrc: React.PropTypes.string.isRequired,
         serverConnection: React.PropTypes.object.isRequired,
         statusMessage: React.PropTypes.string,
@@ -27,10 +26,198 @@ var Popup = React.createClass({
         this.setStatus(message);
     },
 
-    handleFormSubmit_: function(event) {
-        this.setStatus('');
+    setStatus: function(message) {
+        this.setState({
+            statusMessage: message}
+        );
+    },
 
-        this.uploadImage_(this.fetchImage_(this.props.imgSrc))
+    render: function() {
+        return React.createElement("div", null,
+            React.createElement(ImagePreview,
+            {
+                imgSrc: this.props.imgSrc,
+                href: this.props.imgSrc,
+                linkTitle: this.props.pageSrc
+            }),
+            React.createElement(ImageSubmitForm,
+            {
+                onError: this.handleError_,
+                onProgress: this.handleError_,
+                imgSrc: this.props.imgSrc,
+                pageSrc: this.props.pageSrc,
+                serverConnection: this.props.serverConnection,
+                tags: this.props.tags,
+            }),
+            React.createElement(Status,
+            {
+                message: this.state.statusMessage,
+            })
+        );
+    }
+});
+
+var Status = React.createClass({
+    displayName: 'Status',
+
+    propTypes: {
+        message: React.PropTypes.string.isRequired,
+    },
+
+    render: function() {
+        return React.createElement("div",
+            {
+                id: 'status'
+            },
+            this.props.message
+        );
+    }
+});
+
+var ImagePreview = React.createClass({
+    displayName: 'ImagePreview',
+
+    propTypes: {
+        imgSrc: React.PropTypes.string.isRequired,
+        href: React.PropTypes.string.isRequired,
+        linkTitle: React.PropTypes.string.isRequired,
+    },
+
+    render: function() {
+        return React.createElement("div",
+            {
+                id: 'figure-target'
+            },
+            React.createElement("figure", {},
+                React.createElement("image", {src: this.props.imgSrc}),
+                React.createElement("figcaption", null,
+                    React.createElement("a", {href: this.props.href}, this.props.linkTitle)
+                )
+            )
+        );
+    }
+});
+
+var ImageSubmitForm = React.createClass({
+    displayName: 'ImageSubmitForm',
+
+    propTypes: {
+        imgSrc: React.PropTypes.string.isRequired,
+        onError: React.PropTypes.func.isRequired,
+        onProgress: React.PropTypes.func.isRequired,
+        pageSrc: React.PropTypes.string,
+        serverConnection: React.PropTypes.object.isRequired,
+        tags: React.PropTypes.string,
+    },
+
+    componentWillMount: function() {
+        var message = this.validateForm_();
+        if (message) {
+            this.props.onError(message)
+        }
+    },
+
+    getInitialState: function() {
+        return {
+            imgSrcInput: this.props.imgSrc,
+            pageSrcInput: this.props.pageSrc,
+            tagsInput: this.props.tags,
+        };
+    },
+
+    handleImgSrcChange_: function(event) {
+        this.setState({
+            imgSrcInput: event.target.value}
+        );
+    },
+
+    handlePageSrcChange_: function(event) {
+        this.setState({
+            pageSrcInput: event.target.value}
+        );
+    },
+
+    handleTagsChange_: function(event) {
+        this.setState({
+            tagsInput: event.target.value}
+        );
+    },
+
+    handleOnSubmit_: function(event) {
+        event.preventDefault();
+        var error = this.validateForm_();
+        if (error) {
+             this.props.onError(error)
+        } else {
+            this.initiateUpload_();
+        }
+    },
+
+    validateForm_: function() {
+        if (this.state.imgSrcInput.startsWith('data:')) {
+            return 'Sorry, encoded images are not yet supported';
+        }
+
+        if (this.state.tagsInput) {
+            var tags = this.state.tagsInput.split(',').map(function(s) { return s.trim(); });
+            var invalid = tags.some(function(t) { return !t });
+
+            if (invalid) {
+                return 'At least one invalid tag was supplied';
+            }
+        }
+
+        return '';
+    },
+
+    render: function() {
+        return React.createElement("form",
+            {
+                id: 'upload-form',
+                method: 'POST',
+                onSubmit: this.handleOnSubmit_,
+            },
+            React.createElement("label", {htmlFor: 'imageSrc'}, 'Image URL'),
+            React.createElement("input",
+                {
+                    onChange: this.handleImgSrcChange_,
+                    id: 'imageSrc',
+                    type: 'text',
+                    name: 'img',
+                    value: this.state.imgSrcInput
+                }
+            ),
+            React.createElement("label", {htmlFor: 'pageSrc'}, 'Found on Page'),
+            React.createElement("input",
+                {
+                    onChange: this.handlePageSrcChange_,
+                    id: 'pageSrc',
+                    type: 'text',
+                    name: 'img',
+                    value: this.state.pageSrcInput
+                }
+            ),
+            React.createElement("label", {htmlFor: 'tags'}, 'Additional Tags'),
+            React.createElement("input",
+                {
+                    onChange: this.handleTagsChange_,
+                    id: 'tags',
+                    type: 'text',
+                    name: 'img',
+                    value: this.state.tagsInput
+                }
+            ),
+            React.createElement("input",
+                {
+                    type: 'submit',
+                    value: 'Send to Camlistore'
+                }
+            )
+        );
+    },
+
+    initiateUpload_: function() {
+        this.uploadImage_(this.fetchImage_(this.state.imgSrcInput))
           .then(this.createPermanode_)
           .then(this.addCamliContentRef_)
           .then(this.addImageSrcAttribute_)
@@ -39,10 +226,8 @@ var Popup = React.createClass({
           .then(this.onFinish_)
           .catch(function(error) {
             console.log("Found error: ", error.message);
-            this.setStatus(error.message);
+            this.props.onError(error.message);
           }.bind(this));
-
-          event.preventDefault();
     },
 
 	uploadImage_: function(fetchDataPromise) {
@@ -149,7 +334,7 @@ var Popup = React.createClass({
 
 	addImageSrcAttribute_: function(results) {
 		var sc = this.props.serverConnection;
-		return sc.updatePermanodeAttr(results.permanoderef, "set-attribute", "imgSrc", this.props.imgSrc).then(
+		return sc.updatePermanodeAttr(results.permanoderef, "set-attribute", "imgSrc", this.state.imgSrcInput).then(
 		function(data) {
 			console.log('imgSrc attribute added: ' + data);
 			return results;
@@ -158,7 +343,7 @@ var Popup = React.createClass({
 
 	addPageSrcAttribute_: function(results) {
 		var sc = this.props.serverConnection;
-		return sc.updatePermanodeAttr(results.permanoderef, "set-attribute", "foundAt", this.props.pageSrc).then(
+		return sc.updatePermanodeAttr(results.permanoderef, "set-attribute", "foundAt", this.state.pageSrcInput).then(
 		function(data) {
 			console.log('foundAt attribute added: ' + data);
 			return results;
@@ -168,7 +353,7 @@ var Popup = React.createClass({
 	addTags_: function(results) {
 		var sc = this.props.serverConnection;
 		var promises = [];
-		var tags = this.props.tags.split(',').map(function(s) { return s.trim(); });
+		var tags = this.state.tagsInput.split(',').map(function(s) { return s.trim(); });
 		tags.forEach(function(tag) {
 		if (tag) {
 			promises.push(sc.updatePermanodeAttr(results.permanoderef, "add-attribute", "tag", tag));
@@ -184,7 +369,7 @@ var Popup = React.createClass({
 	},
 
 	onFinish_: function() {
-		this.setStatus('Success!');
+		this.props.onProgress('Success!');
 	},
 
 	/**
@@ -214,192 +399,4 @@ var Popup = React.createClass({
 			request.send();
 		});
 	},
-
-    setStatus: function(message) {
-        this.setState({
-            statusMessage: message}
-        );
-    },
-
-    render: function() {
-        return React.createElement("div", null,
-            React.createElement(ImagePreview,
-            {
-                imgSrc: this.props.imgSrc,
-                href: this.props.imgSrc,
-                linkTitle: this.props.pageSrc
-            }),
-            React.createElement(ImageSubmitForm,
-            {
-                onError: this.handleError_,
-                onSubmit: this.handleFormSubmit_,
-                imgSrc: this.props.imgSrc,
-                pageSrc: this.props.pageSrc,
-                tags: this.props.tags,
-            }),
-            React.createElement(Status,
-            {
-                message: this.state.statusMessage,
-            })
-        );
-    }
-});
-
-var Status = React.createClass({
-    displayName: 'Status',
-
-    propTypes: {
-        message: React.PropTypes.string.isRequired,
-    },
-
-    render: function() {
-        return React.createElement("div",
-            {
-                id: 'status'
-            },
-            this.props.message
-        );
-    }
-});
-
-var ImagePreview = React.createClass({
-    displayName: 'ImagePreview',
-
-    propTypes: {
-        imgSrc: React.PropTypes.string.isRequired,
-        href: React.PropTypes.string.isRequired,
-        linkTitle: React.PropTypes.string.isRequired,
-    },
-
-    render: function() {
-        return React.createElement("div",
-            {
-                id: 'figure-target'
-            },
-            React.createElement("figure", {},
-                React.createElement("image", {src: this.props.imgSrc}),
-                React.createElement("figcaption", null,
-                    React.createElement("a", {href: this.props.href}, this.props.linkTitle)
-                )
-            )
-        );
-    }
-});
-
-var ImageSubmitForm = React.createClass({
-    displayName: 'ImageSubmitForm',
-
-    propTypes: {
-        imgSrc: React.PropTypes.string.isRequired,
-        onSubmit: React.PropTypes.func.isRequired,
-        onError: React.PropTypes.func.isRequired,
-        pageSrc: React.PropTypes.string,
-        tags: React.PropTypes.string,
-    },
-
-    componentWillMount: function() {
-        var message = this.validateForm_();
-        if (message) {
-            this.props.onError(message)
-        }
-    },
-
-    getInitialState: function() {
-        return {
-            imgSrcInput: this.props.imgSrc,
-            pageSrcInput: this.props.pageSrc,
-            tagsInput: this.props.tags,
-        };
-    },
-
-    handleImgSrcChange_: function(event) {
-        this.setState({
-            imgSrcInput: event.target.value}
-        );
-    },
-
-    handlePageSrcChange_: function(event) {
-        this.setState({
-            pageSrcInput: event.target.value}
-        );
-    },
-
-    handleTagsChange_: function(event) {
-        this.setState({
-            tagsInput: event.target.value}
-        );
-    },
-
-    handleOnSubmit_: function(event) {
-        event.preventDefault();
-        var error = this.validateForm_();
-        if (error) {
-             this.props.onError(error)
-        } else {
-            this.props.onSubmit(event);
-        }
-    },
-
-    validateForm_: function() {
-        if (this.state.imgSrcInput.startsWith('data:')) {
-            return 'Sorry, encoded images are not yet supported';
-        }
-
-        if (this.state.tagsInput) {
-            var tags = this.state.tagsInput.split(',').map(function(s) { return s.trim(); });
-            var invalid = tags.some(function(t) { return !t });
-
-            if (invalid) {
-                return 'At least one invalid tag was supplied';
-            }
-        }
-
-        return '';
-    },
-
-    render: function() {
-        return React.createElement("form",
-            {
-                id: 'upload-form',
-                method: 'POST',
-                onSubmit: this.handleOnSubmit_,
-            },
-            React.createElement("label", {htmlFor: 'imageSrc'}, 'Image URL'),
-            React.createElement("input",
-                {
-                    onChange: this.handleImgSrcChange_,
-                    id: 'imageSrc',
-                    type: 'text',
-                    name: 'img',
-                    value: this.state.imgSrcInput
-                }
-            ),
-            React.createElement("label", {htmlFor: 'pageSrc'}, 'Found on Page'),
-            React.createElement("input",
-                {
-                    onChange: this.handlePageSrcChange_,
-                    id: 'pageSrc',
-                    type: 'text',
-                    name: 'img',
-                    value: this.state.pageSrcInput
-                }
-            ),
-            React.createElement("label", {htmlFor: 'tags'}, 'Additional Tags'),
-            React.createElement("input",
-                {
-                    onChange: this.handleTagsChange_,
-                    id: 'tags',
-                    type: 'text',
-                    name: 'img',
-                    value: this.state.tagsInput
-                }
-            ),
-            React.createElement("input",
-                {
-                    type: 'submit',
-                    value: 'Send to Camlistore'
-                }
-            )
-        );
-    }
 });
