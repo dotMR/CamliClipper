@@ -225,7 +225,7 @@ var ImageSubmitForm = React.createClass({
           .then(this.addTags_)
           .then(this.onFinish_)
           .catch(function(error) {
-            console.log("Found error: ", error.message);
+            console.log("Error caught: ", error.message);
             this.props.onError(error.message);
           }.bind(this));
     },

@@ -1,15 +1,14 @@
 /*
   TODO:
-    - validate all refs logged to console (missing any?)
     - update layout so status, fields, image fit within one view
     - improve error validation (indicate problem at field, differentiate color)
-    - set status from popup page (when loading options), or move this to main component as well?_
     - introduce Flux concepts to app functionality
-    - move ServerConnection init into ServerConnection (pass a URL?)
+    - move ServerConnection discovery into ServerConnection (pass a URL?)
+    - set status from popup page (when loading options), or move this to main component as well?_
+    - Review JS includes (can any be async / defered)?  https://developers.google.com/speed/docs/insights/BlockingJS
 
   ENHANCEMENTS:
     - Support storage of base64-encoded images (like in google image search results)
-    - Review JS includes (can any be async / defered)?  https://developers.google.com/speed/docs/insights/BlockingJS
     - Support basic username/password auth
         - review storage of sensitive information
     - Start to think of this in terms of possible metadata to provide
