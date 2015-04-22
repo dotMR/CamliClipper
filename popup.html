@@ -1,31 +1,18 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <script src="popup.js"></script>
+    <script src="react-0.13.2.js"></script>
+    <script src="react-components.js"></script>
     <script src="Crypto.js"></script>
     <script src="SHA1.js"></script>
     <script src="ServerConnection.js"></script>
+    <script src="popup.js"></script>
     <link href="popup.css" rel="stylesheet" type="text/css"></link>
   </head>
-  <body>
+  <body id="body">
     <h3>C3: Camli Clipper (Chrome)</h3>
-    <div id='figure-target'>
-      <!-- image content added by javascript -->
-    </div>
-    <form id='uploadForm' method='POST'>
-      <label for="imageSrc">Image URL</label>
-      <input id='imageSrc' type='text' name="img">
-      <label for="pageSrc">Found on Page</label>
-      <input id='pageSrc' type='text' name="page">
-      <label for="tags">Additional Tags</label>
-      <input id='tags' type='text' name="tags">
-      <input type='submit' value='Send to Camlistore'/>
-    </form>
-    <div>
-      <h4>Status</h4>
-      <div id='status'>
-        <!-- content added by javascript -->
-      </div>
+    <div id="root"/>
+      <!-- content rendered by React -->
     </div>
   </body>
 </html>

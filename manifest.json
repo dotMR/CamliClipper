@@ -14,7 +14,7 @@
 
   "background" : {
     "persistent": false,
-    "scripts": ["Crypto.js", "SHA1.js", "ServerConnection.js", "options.js", "background.js"]
+    "scripts": ["react-0.13.2.js", "Crypto.js", "SHA1.js", "ServerConnection.js", "options.js", "background.js", "react-components.js"]
   },
 
   "permissions": [
