@@ -33,7 +33,8 @@ var Popup = React.createClass({
     },
 
     render: function() {
-        return React.createElement("div", null,
+        return React.createElement("div", {id: 'root'},
+            React.createElement("h3", null, "C3: Camli Clipper (Chrome)"),
             React.createElement(ImagePreview,
             {
                 imgSrc: this.props.imgSrc,
@@ -84,16 +85,11 @@ var ImagePreview = React.createClass({
     },
 
     render: function() {
-        return React.createElement("div",
-            {
-                id: 'figure-target'
-            },
-            React.createElement("figure", {},
-                React.createElement("image", {src: this.props.imgSrc}),
-                React.createElement("figcaption", null,
-                    React.createElement("a", {href: this.props.href}, this.props.linkTitle)
-                )
-            )
+        return React.createElement("figure", {},
+            React.createElement("image", {src: this.props.imgSrc})
+            // React.createElement("figcaption", null,
+            //     React.createElement("a", {href: this.props.href}, this.props.linkTitle)
+            // )
         );
     }
 });

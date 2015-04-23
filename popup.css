@@ -1,25 +1,30 @@
+html {
+
+}
+
 body {
 
 }
 
-form > label {
+form > label,input {
 	display: block;
 }
 
 figure {
   text-align: center;
-
-  border: 1px solid #ccc;
-  border-radius: 10px;
   padding: 7px;
 }
 
 figure > img {
   margin-bottom: 11px;
-  max-height: 400px;
+  max-width: 350px;
 }
 
-input {
+input:not([type="submit"]) {
   width: 400px;
   margin-bottom: 13px
+}
+
+#status {
+  margin-top: 13px;
 }

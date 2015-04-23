@@ -1,11 +1,12 @@
 /*
   TODO:
-    - update layout so status, fields, image fit within one view
+    - implement options page in React Views
+    - introduce Flux concepts to app functionality?
     - improve error validation (indicate problem at field, differentiate color)
-    - introduce Flux concepts to app functionality
     - move ServerConnection discovery into ServerConnection (pass a URL?)
     - set status from popup page (when loading options), or move this to main component as well?_
     - Review JS includes (can any be async / defered)?  https://developers.google.com/speed/docs/insights/BlockingJS
+    - how to adjust size of popup dynamically? Seems like I have to set the size in background.js
 
   ENHANCEMENTS:
     - Support storage of base64-encoded images (like in google image search results)
@@ -77,7 +78,7 @@ function discoverServer(options) {
     }.bind(this);
 
     request.onerror = function() {
-      reject(Error('Network error discovering server'));
+      reject(Error('Network error discovering Camlistore server'));
     };
 
     request.send();
@@ -101,7 +102,7 @@ function initializePageElements(results) {
           serverConnection: new cam.ServerConnection(results.url, results.discovery),
           tags: results.options.defaultTags
         }),
-      document.getElementById('root')
+      document.getElementById('body')
   );
 
   return Promise.resolve('Page initialized');
