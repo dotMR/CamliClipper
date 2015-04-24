@@ -30,9 +30,24 @@ cam.ServerConnection = function(url, config) {
 }
 
 /**
- * Request to Camlistore server to sign an object before upload
+ * Request Camlistore server to create a permanode
  *
- * @param {string} blobref blobref of permanode to update.
+ * @return {Promise} Promise of JSON confirmation.
+ */
+cam.ServerConnection.prototype.createPermanode = function() {
+  var json = {
+    "camliVersion": 1,
+    "camliType": "permanode",
+    "random": "" + Math.random()
+  };
+
+  return this.signObject(json).then(this.uploadString.bind(this));
+}
+
+/**
+ * Request Camlistore server to update a permanode attribute
+ *
+ * @param {string} blobref permanode to update.
  * @param {string} What type of claim: "add-attribute", "set-attribute"...
  * @param {string} name of attribute to update.
  * @param {string} value for attribute.

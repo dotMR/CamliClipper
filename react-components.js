@@ -1,29 +1,29 @@
-var Hello = React.createClass({displayName: 'Hello',
-    render: function() {
-        return React.createElement("div", null, "Hello ", this.props.name);
-    }
-});
-
-// TODO: require only 'options' for popup with needed properties as additional reqs
 var Popup = React.createClass({
     displayName: 'Popup',
 
     propTypes: {
-        imgSrc: React.PropTypes.string.isRequired,
-        pageSrc: React.PropTypes.string.isRequired,
-        serverConnection: React.PropTypes.object.isRequired,
-        statusMessage: React.PropTypes.string,
-        tags: React.PropTypes.string,
+        config: React.PropTypes.shape({
+            url: React.PropTypes.string.isRequired,
+            defaultTags: React.PropTypes.string
+        }).isRequired,
+        queryString: React.PropTypes.string.isRequired,
+        serverConnection: React.PropTypes.object.isRequired
     },
 
     getInitialState: function() {
         return {
-            statusMessage: this.props.statusMessage,
+            statusMessage: '',
         };
     },
 
-    handleError_: function(message) {
-        this.setStatus(message);
+    // thanks: https://css-tricks.com/snippets/javascript/get-url-variables/
+    getQueryParam_: function(param) {
+        var vars = this.props.queryString.split("&");
+        for (var i=0; i<vars.length; i++) {
+            var pair = vars[i].split("=");
+            if (pair[0] == param){ return pair[1]; }
+        }
+       return false;
     },
 
     setStatus: function(message) {
@@ -33,22 +33,20 @@ var Popup = React.createClass({
     },
 
     render: function() {
-        return React.createElement("div", {id: 'root'},
+        return React.createElement("div", null,
             React.createElement("h3", null, "C3: Camli Clipper (Chrome)"),
             React.createElement(ImagePreview,
             {
-                imgSrc: this.props.imgSrc,
-                href: this.props.imgSrc,
-                linkTitle: this.props.pageSrc
+                imgSrc: this.getQueryParam_('imgSrc'),
             }),
             React.createElement(ImageSubmitForm,
             {
-                onError: this.handleError_,
-                onProgress: this.handleError_,
-                imgSrc: this.props.imgSrc,
-                pageSrc: this.props.pageSrc,
+                onError: this.setStatus,
+                onProgress: this.setStatus,
+                imgSrc: this.getQueryParam_('imgSrc'),
+                pageSrc: this.getQueryParam_('pageSrc'),
                 serverConnection: this.props.serverConnection,
-                tags: this.props.tags,
+                tags: this.props.config.defaultTags,
             }),
             React.createElement(Status,
             {
@@ -80,16 +78,11 @@ var ImagePreview = React.createClass({
 
     propTypes: {
         imgSrc: React.PropTypes.string.isRequired,
-        href: React.PropTypes.string.isRequired,
-        linkTitle: React.PropTypes.string.isRequired,
     },
 
     render: function() {
-        return React.createElement("figure", {},
+        return React.createElement("figure", null,
             React.createElement("image", {src: this.props.imgSrc})
-            // React.createElement("figcaption", null,
-            //     React.createElement("a", {href: this.props.href}, this.props.linkTitle)
-            // )
         );
     }
 });
@@ -118,25 +111,27 @@ var ImageSubmitForm = React.createClass({
             imgSrcInput: this.props.imgSrc,
             pageSrcInput: this.props.pageSrc,
             tagsInput: this.props.tags,
+            tagsInvalid: false
         };
     },
 
     handleImgSrcChange_: function(event) {
         this.setState({
-            imgSrcInput: event.target.value}
-        );
+            imgSrcInput: event.target.value
+        });
     },
 
     handlePageSrcChange_: function(event) {
         this.setState({
-            pageSrcInput: event.target.value}
-        );
+            pageSrcInput: event.target.value
+        });
     },
 
     handleTagsChange_: function(event) {
         this.setState({
-            tagsInput: event.target.value}
-        );
+            tagsInput: event.target.value,
+            tagsInvalid: false
+        });
     },
 
     handleOnSubmit_: function(event) {
@@ -150,15 +145,18 @@ var ImageSubmitForm = React.createClass({
     },
 
     validateForm_: function() {
-        if (this.state.imgSrcInput.startsWith('data:')) {
-            return 'Sorry, encoded images are not yet supported';
-        }
+        // if (this.state.imgSrcInput.startsWith('data:')) {
+        //     return 'Sorry, encoded images are not yet supported';
+        // }
 
         if (this.state.tagsInput) {
             var tags = this.state.tagsInput.split(',').map(function(s) { return s.trim(); });
             var invalid = tags.some(function(t) { return !t });
 
             if (invalid) {
+                this.setState({
+                    tagsInvalid: true
+                });
                 return 'At least one invalid tag was supplied';
             }
         }
@@ -200,7 +198,8 @@ var ImageSubmitForm = React.createClass({
                     id: 'tags',
                     type: 'text',
                     name: 'img',
-                    value: this.state.tagsInput
+                    value: this.state.tagsInput,
+                    className: this.state.tagsInvalid ? 'invalid' : '',
                 }
             ),
             React.createElement("input",
@@ -212,13 +211,56 @@ var ImageSubmitForm = React.createClass({
         );
     },
 
+    // dataURItoBlob_: function(dataURI) {
+    //     // convert base64 to raw binary data held in a string
+    //     // doesn't handle URLEncoded DataURIs - see SO answer #6850276 for code that does this
+    //     var byteString = atob(dataURI.split(',')[1]);
+     
+    //     // separate out the mime component
+    //     var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0]
+     
+    //     // write the bytes of the string to an ArrayBuffer
+    //     var ab = new ArrayBuffer(byteString.length);
+    //     var ia = new Uint8Array(ab);
+    //     for (var i = 0; i < byteString.length; i++) {
+    //         ia[i] = byteString.charCodeAt(i);
+    //     }
+     
+    //     // write the ArrayBuffer to a blob, and you're done
+    //     var bb = new BlobBuilder();
+    //     bb.append(ab);
+    //     return bb.getBlob(mimeString);
+    // },
+
     initiateUpload_: function() {
-        this.uploadImage_(this.fetchImage_(this.state.imgSrcInput))
+        // TODO: rework flow to allow for either dataURI or URL
+        // see also: http://stackoverflow.com/questions/12168909/blob-from-dataurl
+        //           https://github.com/ebidel/filer.js/blob/master/src/filer.js#L137
+
+        // var dataURI = this.state.imgSrcInput;
+
+        // if(dataURI.startsWith('data:')) {
+        //     var byteString = atob(dataURI.split(',')[1]);
+        //     var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0]
+         
+        //     // write the bytes of the string to an ArrayBuffer
+        //     var ab = new ArrayBuffer(byteString.length);
+        //     var ia = new Uint8Array(ab);
+        //     for (var i = 0; i < byteString.length; i++) {
+        //         ia[i] = byteString.charCodeAt(i);
+        //     }
+
+        //     var blobref = 'sha1-' + Crypto.SHA1(ia);
+        //     console.log('hash computed: ' + blobref);
+
+        //     var blob = new Blob([ia], {type: mimeString}); // this works!
+        // }
+
+        this.fetchImage_(this.state.imgSrcInput)
+          .then(this.checkForDuplicate_)
+          .then(this.doUpload_)
           .then(this.createPermanode_)
-          .then(this.addCamliContentRef_)
-          .then(this.addImageSrcAttribute_)
-          .then(this.addPageSrcAttribute_)
-          .then(this.addTags_)
+          .then(this.addPermanodeMetadata_)
           .then(this.onFinish_)
           .catch(function(error) {
             console.log("Error caught: ", error.message);
@@ -226,173 +268,160 @@ var ImageSubmitForm = React.createClass({
           }.bind(this));
     },
 
-	uploadImage_: function(fetchDataPromise) {
-		return fetchDataPromise
-			.then(this.checkForDuplicate_)
-			.then(this.doUpload_);
-	},
+    fetchImage_: function(url) {
+        console.log('fetching image from: ' + url);
+        return this.getAsBlob_(url)
+            .then(this.captureBlobAndComputeRef_)
+            .then(this.assembleResults_);
+    },
 
-	fetchImage_: function(url) {
-		console.log('fetching image from: ' + url);
-		return this.getAsBlob_(url)
-			.then(this.captureBlobAndComputeRef_)
-			.then(this.assembleResults_);
-	},
+    captureBlobAndComputeRef_: function(blob) {
+        var resolvedBlob = Promise.resolve(blob);
+        var blobref = this.convertToTypedArray_(blob).then(this.generateHash_);
 
-	captureBlobAndComputeRef_: function(blob) {
-		var resolvedBlob = Promise.resolve(blob);
-		var blobref = this.convertToTypedArray_(blob).then(this.generateHash_);
+        return Promise.all([resolvedBlob, blobref]);
+    },
 
-		return Promise.all([resolvedBlob, blobref]);
-	},
+    convertToTypedArray_: function(blob) {
+        return new Promise(function(resolve, reject) {
+            var reader  = new FileReader();
 
-	convertToTypedArray_: function(blob) {
-		return new Promise(function(resolve, reject) {
-		var reader  = new FileReader();
+            reader.onload = function() {
+                if (reader.readyState === 2) {
+                    console.log('blob converted to typed array');
+                    resolve(reader.result);
+                }
+            }.bind(this);
 
-		reader.onload = function() {
-			if (reader.readyState === 2) {
-				console.log('blob converted to typed array');
-				resolve(reader.result);
-			}
-		}.bind(this);
+            reader.onerror = function() {
+                reject(Error('There was an error converting the image blob to a typed array'));
+            }
 
-		reader.onerror = function() {
-			reject(Error('There was an error converting the image blob to a typed array'));
-		}
+            reader.readAsArrayBuffer(blob);
+        });
+    },
 
-		reader.readAsArrayBuffer(blob);
-		});
-	},
+    generateHash_: function(arrayBuffer) {
+        var bytes = new Uint8Array(arrayBuffer);
+        var blobref = 'sha1-' + Crypto.SHA1(bytes);
+        console.log('hash computed: ' + blobref);
+        return blobref;
+    },
 
-	generateHash_: function(arrayBuffer) {
-		var bytes = new Uint8Array(arrayBuffer);
-		var blobref = 'sha1-' + Crypto.SHA1(bytes);
-		console.log('hash computed: ' + blobref);
-		return blobref;
-	},
+    // 'readable=ify' the results
+    assembleResults_: function(results) {
+        return {
+            'blob': results[0],
+            'blobref': results[1]
+        };
+    },
 
-	// 'readable=ify' the results
-	assembleResults_: function(results) {
-		return {
-		'blob': results[0],
-		'blobref': results[1]
-		};
-	},
+    checkForDuplicate_: function(results) {
+        console.log('checking for duplicates');
+        var sc = this.props.serverConnection;
+        return sc.findExisting(results.blobref).then(
+            function(json) {
+                return results; // ignore empty json and keep passing results
+            });
+    },
 
-	checkForDuplicate_: function(results) {
-		console.log('checking for duplicates');
-		var sc = this.props.serverConnection;
-		return sc.findExisting(results.blobref).then(
-			function(json) {
-			  return results;
-			});
-	},
+    doUpload_: function(results) {
+        var sc = this.props.serverConnection;
+        return sc.uploadBlob(results.blob).then(
+        function(ref) {
+            console.log('blob uploaded: ' + ref);
+            results.fileref = ref;
+            return results;
+        });
+    },
 
-	doUpload_: function(results) {
-		var sc = this.props.serverConnection;
-		return sc.uploadBlob(results.blob).then(
-		function(ref) {
-			// capture fileRef returned from upload
-			console.log('blob uploaded: ' + ref);
-			results.fileref = ref;
-			return results;
-		});
-	},
+    createPermanode_: function(results) {
+        var sc = this.props.serverConnection;
+        return sc.createPermanode().then(
+            function(data) {
+                console.log('permanode created: ' + data);
+                results.permanoderef = data
+                return results;
+        });
+    },
 
-	createPermanode_: function(results) {
-		var permanode = {
-			"camliVersion": 1,
-			"camliType": "permanode",
-			"random": "" + Math.random()
-		};
+    addPermanodeMetadata_: function(results) {
+        var camliContent = this.addCamliContentRef_(results.permanoderef, results.fileref);
+        var imgSrc = this.addImageSrcAttribute_(results.permanoderef, this.state.imgSrcInput);
+        var pageSrc = this.addPageSrcAttribute_(results.permanoderef, this.state.pageSrcInput);
+        var tags = this.addTags_(results);
 
-		var sc = this.props.serverConnection;
+        return Promise.all([camliContent, imgSrc, pageSrc, tags]);
+    },
 
-		return sc.signObject(permanode)
-			.then(sc.uploadString.bind(sc))
-			.then(
-				function(data) {
-					console.log('permanode created: ' + data);
-					results.permanoderef = data
-					return results;
-				});
-	},
+    updatePermanodeAttr_: function(ref, operation, attribute, value) {
+        var sc = this.props.serverConnection;
+        return sc.updatePermanodeAttr(ref, operation, attribute, value).then(
+        function(data) {
+            console.log(attribute + ' attribute added: ' + data);
+            return data;
+        });
+    },
 
-	addCamliContentRef_: function(results) {
-		var sc = this.props.serverConnection;
-		return sc.updatePermanodeAttr(results.permanoderef, "set-attribute", "camliContent", results.fileref).then(
-		function(data) {
-			console.log('camliContent attribute added: ' + data);
-			return results;
-		});
-	},
+    addCamliContentRef_: function(permanoderef, fileref) {
+        return this.updatePermanodeAttr_(permanoderef, "set-attribute", "camliContent", fileref);
+    },
 
-	addImageSrcAttribute_: function(results) {
-		var sc = this.props.serverConnection;
-		return sc.updatePermanodeAttr(results.permanoderef, "set-attribute", "imgSrc", this.state.imgSrcInput).then(
-		function(data) {
-			console.log('imgSrc attribute added: ' + data);
-			return results;
-		});
-	},
+    addImageSrcAttribute_: function(permanoderef, value) {
+        return this.updatePermanodeAttr_(permanoderef, "set-attribute", "imgSrc", value);
+    },
 
-	addPageSrcAttribute_: function(results) {
-		var sc = this.props.serverConnection;
-		return sc.updatePermanodeAttr(results.permanoderef, "set-attribute", "foundAt", this.state.pageSrcInput).then(
-		function(data) {
-			console.log('foundAt attribute added: ' + data);
-			return results;
-		});
-	},
+    addPageSrcAttribute_: function(permanoderef, value) {
+        return this.updatePermanodeAttr_(permanoderef, "set-attribute", "foundAt", value);
+    },
 
-	addTags_: function(results) {
-		var sc = this.props.serverConnection;
-		var promises = [];
-		var tags = this.state.tagsInput.split(',').map(function(s) { return s.trim(); });
-		tags.forEach(function(tag) {
-		if (tag) {
-			promises.push(sc.updatePermanodeAttr(results.permanoderef, "add-attribute", "tag", tag));
-		}
-		});
+    addTags_: function(results) {
+        var sc = this.props.serverConnection;
+        var promises = [];
+        var tags = this.state.tagsInput.split(',').map(function(s) { return s.trim(); });
+        tags.forEach(function(tag) {
+        if (tag) {
+            promises.push(sc.updatePermanodeAttr(results.permanoderef, "add-attribute", "tag", tag));
+        }
+        });
 
-		return Promise.all(promises).then(function(results) {
-			results.forEach(function(ref) {
-				console.log('tag attributed added: ' + ref);
-			});
-			return results;
-		});
-	},
+        return Promise.all(promises).then(function(results) {
+            results.forEach(function(ref) {
+                console.log('tag attribute added: ' + ref);
+            });
+            return results;
+        });
+    },
 
-	onFinish_: function() {
-		this.props.onProgress('Success!');
-	},
+    onFinish_: function(results) {
+        this.props.onProgress('Success!');
+    },
 
-	/**
-	 * Request to load a url as a 'blob'
-	 *
-	 * @param {string} url of item to download as blob.
-	 * @return {Promise} Promise of blob data.
-	 */
-	getAsBlob_:function (url) {
-		return new Promise(function(resolve, reject) {
-			var request = new XMLHttpRequest();
-			request.open('GET', url);
-			request.responseType = 'blob';
+    /**
+     * Request to load a url as a 'blob'
+     *
+     * @param {string} url of item to download as blob.
+     * @return {Promise} Promise of blob data.
+     */
+    getAsBlob_:function (url) {
+        return new Promise(function(resolve, reject) {
+            var request = new XMLHttpRequest();
+            request.open('GET', url);
+            request.responseType = 'blob';
 
-			request.onload = function() {
-				if (request.status === 200) {
-				resolve(request.response);
-				} else {
-				reject(Error('Blob didn\'t load successfully; error:' + request.statusText));
-				}
-			}.bind(this);
+            request.onload = function() {
+                if (request.status === 200) {
+                resolve(request.response);
+                } else {
+                reject(Error('Blob didn\'t load successfully; error:' + request.statusText));
+                }
+            }.bind(this);
 
-			request.onerror = function() {
-				reject(Error('There was a network error loading the blob'));
-			};
+            request.onerror = function() {
+                reject(Error('There was a network error loading the blob'));
+            };
 
-			request.send();
-		});
-	},
+            request.send();
+        });
+    },
 });

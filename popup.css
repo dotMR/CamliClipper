@@ -1,13 +1,10 @@
-html {
-
-}
-
-body {
-
+#root .error {
+  margin-top: 150px;
+  text-align: center;
 }
 
 form > label,input {
-	display: block;
+  display: block;
 }
 
 figure {
@@ -17,12 +14,17 @@ figure {
 
 figure > img {
   margin-bottom: 11px;
-  max-width: 350px;
+  max-width: 250px;
+  max-height: 350px;
 }
 
 input:not([type="submit"]) {
   width: 400px;
   margin-bottom: 13px
+}
+
+input.invalid {
+  border: 1px solid red;
 }
 
 #status {
