@@ -1,17 +1,16 @@
 /*
   TODO:
-    - implement options page in React Views
-
-    - Review JS includes (can any be async / defered)?  https://developers.google.com/speed/docs/insights/BlockingJS
-    - how to adjust size of popup dynamically? Seems like I have to set the size in background.js
-    - introduce Flux concepts to app functionality? (look at reflux or Marty)
-    - update ServerConnection.js @return doc params (promise of what...)
-    - show Loading message / spinner while image is loading
-
-  ENHANCEMENTS:
     - Support storage of base64-encoded images (like in google image search results)
     - Support basic username/password auth
         - review storage of sensitive information
+    - introduce Flux concepts to app functionality? (look at reflux or Marty)
+
+    - how to adjust size of popup dynamically? Seems like I have to set the size in background.js
+    - show Loading message / spinner while image is loading
+
+  ENHANCEMENTS:
+    - update ServerConnection.js @return doc params (promise of what...)
+    - Review JS includes (can any be async / defered)?  https://developers.google.com/speed/docs/insights/BlockingJS
     - Start to think of this in terms of possible metadata to provide
         - Maybe the options view is a table where you can enter custom metadata, or choose from pre-selected list
     - Configurable persistence of related attributes?
@@ -81,7 +80,7 @@ function discoverServer(options) {
 function renderPopup(results) {
     var content;
 
-    // display the caught error
+    // display caught error
     if (results instanceof Error) {
         content = React.createElement("div", { className: 'error' }, results.message);
     } else {

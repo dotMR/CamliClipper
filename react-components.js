@@ -268,6 +268,8 @@ var ImageSubmitForm = React.createClass({
           }.bind(this));
     },
 
+    // TODO: make distinction here between dataURI and URL
+    // two paths, both endwith assembleResults and then pass to checkForDuplicate
     fetchImage_: function(url) {
         console.log('fetching image from: ' + url);
         return this.getAsBlob_(url)
@@ -424,4 +426,191 @@ var ImageSubmitForm = React.createClass({
             request.send();
         });
     },
+});
+
+var OptionsPopup = React.createClass({
+    displayName: 'OptionsPopup',
+
+    getInitialState: function() {
+        return {
+            statusMessage: ''
+        };
+    },
+
+    setStatus: function(message) {
+        this.setState({
+            statusMessage: message}
+        );
+    },
+
+    render: function() {
+        return React.createElement("div", null,
+            React.createElement("h3", null, "Options"),
+            React.createElement(OptionsForm,
+            {
+                onError: this.setStatus,
+                onProgress: this.setStatus,
+            }),
+            React.createElement(Status,
+            {
+                message: this.state.statusMessage,
+            })
+        );
+    }
+});
+
+var OptionsForm = React.createClass({
+    displayName: 'OptionsForm',
+
+    propTypes: {
+        onError: React.PropTypes.func.isRequired,
+        onProgress: React.PropTypes.func.isRequired
+    },
+
+    componentWillMount: function() {
+        this.runFormValidation_();
+    },
+
+    runFormValidation_: function() {
+        var message = this.validateForm_();
+        if (message) {
+            this.props.onError(message)
+        }
+    },
+
+    getInitialState: function() {
+        return {
+            serverUrl: '',
+            defaultTags: '',
+            tagsInvalid: false
+        };
+    },
+
+    componentDidMount: function() {
+        this.fetchOptions_()
+        .then(this.updateForm_)
+        .catch(function(error) {
+            this.props.onError(error.message);
+        }.bind(this))
+    },
+
+    fetchOptions_: function() {
+        return new Promise(function(resolve, reject) {
+            chrome.storage.sync.get(['url', 'defaultTags'], function(items) {
+                if (chrome.runtime.lastError) {
+                    console.log('Error getting options');
+                    reject(chrome.runtime.lastError) // TODO: how to forcibly test this error condition?
+                }
+                resolve(items);
+            });
+        });
+    },
+
+    saveOptions_: function() {
+        this.props.onProgress('Saving...');
+        return new Promise(function(resolve, reject) {
+            chrome.storage.sync.set(
+                {
+                    serverUrl: this.state.serverUrl,
+                    defaultTags: this.state.defaultTags
+                },
+                function() {
+                    if (chrome.runtime.error) {
+                        reject(Error('Error saving options'));
+                    } else {
+                        resolve();
+                    }
+                }
+            );
+        }.bind(this));
+    },
+
+    onFinish_: function() {
+        this.props.onProgress('Options saved!');
+        setTimeout(function() {
+              this.props.onProgress('');
+            }.bind(this), 1500);
+    },
+
+    updateForm_: function(options) {
+        this.setState({
+            serverUrl: options.url,
+            defaultTags: options.defaultTags
+        }, this.runFormValidation_);
+    },
+
+    handleUrlChange_: function(event) {
+        this.setState({
+            serverUrl: event.target.value
+        });
+    },
+
+    handleTagsChange_: function(event) {
+        this.setState({
+            defaultTags: event.target.value,
+            tagsInvalid: false
+        });
+    },
+
+    handleOnSubmit_: function(event) {
+        event.preventDefault();
+        this.validateForm_()
+        .then(this.saveOptions_)
+        .then(this.onFinish_)
+        .catch(function(error) {
+            this.props.onError(error.message);
+        }.bind(this));
+    },
+
+    validateForm_: function() {
+        return new Promise(function(resolve, reject) {
+            if (this.state.defaultTags) {
+                var tags = this.state.defaultTags.split(',').map(function(s) { return s.trim(); });
+                var invalid = tags.some(function(t) { return !t });
+
+                if (invalid) {
+                    this.setState({
+                        tagsInvalid: true
+                    });
+                    reject(Error('At least one invalid tag was supplied'));
+                }
+            }
+
+            resolve();
+        }.bind(this));
+    },
+
+    render: function() {
+        return React.createElement("form",
+            {
+                id: 'options-form',
+                onSubmit: this.handleOnSubmit_,
+            },
+            React.createElement("label", {htmlFor: 'serverUrl'}, 'Server URL'),
+            React.createElement("input",
+                {
+                    onChange: this.handleUrlChange_,
+                    id: 'serverUrl',
+                    type: 'text',
+                    value: this.state.serverUrl
+                }
+            ),
+            React.createElement("label", {htmlFor: 'defaultTags'}, 'Default Tag(s)'),
+            React.createElement("input",
+                {
+                    onChange: this.handleTagsChange_,
+                    id: 'defaultTags',
+                    type: 'text',
+                    value: this.state.defaultTags,
+                    className: this.state.tagsInvalid ? 'invalid' : ''
+                }
+            ),
+            React.createElement("input",
+                {
+                    type: 'submit',
+                    value: 'Save'
+                }
+            )
+        );
+    }
 });
