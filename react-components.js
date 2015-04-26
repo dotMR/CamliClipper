@@ -145,10 +145,6 @@ var ImageSubmitForm = React.createClass({
     },
 
     validateForm_: function() {
-        // if (this.state.imgSrcInput.startsWith('data:')) {
-        //     return 'Sorry, encoded images are not yet supported';
-        // }
-
         if (this.state.tagsInput) {
             var tags = this.state.tagsInput.split(',').map(function(s) { return s.trim(); });
             var invalid = tags.some(function(t) { return !t });
@@ -211,52 +207,10 @@ var ImageSubmitForm = React.createClass({
         );
     },
 
-    // dataURItoBlob_: function(dataURI) {
-    //     // convert base64 to raw binary data held in a string
-    //     // doesn't handle URLEncoded DataURIs - see SO answer #6850276 for code that does this
-    //     var byteString = atob(dataURI.split(',')[1]);
-     
-    //     // separate out the mime component
-    //     var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0]
-     
-    //     // write the bytes of the string to an ArrayBuffer
-    //     var ab = new ArrayBuffer(byteString.length);
-    //     var ia = new Uint8Array(ab);
-    //     for (var i = 0; i < byteString.length; i++) {
-    //         ia[i] = byteString.charCodeAt(i);
-    //     }
-     
-    //     // write the ArrayBuffer to a blob, and you're done
-    //     var bb = new BlobBuilder();
-    //     bb.append(ab);
-    //     return bb.getBlob(mimeString);
-    // },
-
     initiateUpload_: function() {
-        // TODO: rework flow to allow for either dataURI or URL
-        // see also: http://stackoverflow.com/questions/12168909/blob-from-dataurl
-        //           https://github.com/ebidel/filer.js/blob/master/src/filer.js#L137
-
-        // var dataURI = this.state.imgSrcInput;
-
-        // if(dataURI.startsWith('data:')) {
-        //     var byteString = atob(dataURI.split(',')[1]);
-        //     var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0]
-         
-        //     // write the bytes of the string to an ArrayBuffer
-        //     var ab = new ArrayBuffer(byteString.length);
-        //     var ia = new Uint8Array(ab);
-        //     for (var i = 0; i < byteString.length; i++) {
-        //         ia[i] = byteString.charCodeAt(i);
-        //     }
-
-        //     var blobref = 'sha1-' + Crypto.SHA1(ia);
-        //     console.log('hash computed: ' + blobref);
-
-        //     var blob = new Blob([ia], {type: mimeString}); // this works!
-        // }
-
         this.fetchImage_(this.state.imgSrcInput)
+          .then(this.captureBlobAndComputeRef_)
+          .then(this.assembleResults_)
           .then(this.checkForDuplicate_)
           .then(this.doUpload_)
           .then(this.createPermanode_)
@@ -268,13 +222,12 @@ var ImageSubmitForm = React.createClass({
           }.bind(this));
     },
 
-    // TODO: make distinction here between dataURI and URL
-    // two paths, both endwith assembleResults and then pass to checkForDuplicate
     fetchImage_: function(url) {
-        console.log('fetching image from: ' + url);
-        return this.getAsBlob_(url)
-            .then(this.captureBlobAndComputeRef_)
-            .then(this.assembleResults_);
+        if (this.isDataURL_(url)) {
+            return this.dataURLToBlob_(url);
+        }
+
+        return this.getAsBlob_(url);
     },
 
     captureBlobAndComputeRef_: function(blob) {
@@ -406,6 +359,7 @@ var ImageSubmitForm = React.createClass({
      * @return {Promise} Promise of blob data.
      */
     getAsBlob_:function (url) {
+        console.log('fetching blob from: ' + url);
         return new Promise(function(resolve, reject) {
             var request = new XMLHttpRequest();
             request.open('GET', url);
@@ -413,9 +367,9 @@ var ImageSubmitForm = React.createClass({
 
             request.onload = function() {
                 if (request.status === 200) {
-                resolve(request.response);
+                    resolve(request.response);
                 } else {
-                reject(Error('Blob didn\'t load successfully; error:' + request.statusText));
+                    reject(Error('Blob didn\'t load successfully; error:' + request.statusText));
                 }
             }.bind(this);
 
@@ -426,6 +380,45 @@ var ImageSubmitForm = React.createClass({
             request.send();
         });
     },
+
+    /**
+     * Creates and returns a blob from a data URL (either base64 encoded or not).
+     *
+     * thanks: https://github.com/ebidel/filer.js/blob/master/src/filer.js#L137
+     *
+     * @param {string} dataURL The data URL to convert.
+     * @return {Blob} A blob representing the array buffer data.
+     */
+    dataURLToBlob_: function(dataURL) {
+        console.log('creating blob from provided dataURL');
+        return new Promise(function(resolve, reject) {
+            var BASE64_MARKER = ';base64,';
+            if (dataURL.indexOf(BASE64_MARKER) == -1) {
+              var parts = dataURL.split(',');
+              var contentType = parts[0].split(':')[1];
+              var raw = decodeURIComponent(parts[1]);
+
+              resolve(new Blob([raw], {type: contentType}));
+            }
+
+            var parts = dataURL.split(BASE64_MARKER);
+            var contentType = parts[0].split(':')[1];
+            var raw = window.atob(parts[1]);
+            var rawLength = raw.length;
+
+            var uInt8Array = new Uint8Array(rawLength);
+
+            for (var i = 0; i < rawLength; ++i) {
+              uInt8Array[i] = raw.charCodeAt(i);
+            }
+
+            resolve(new Blob([uInt8Array], {type: contentType}));
+        });
+    },
+
+    isDataURL_: function(url) {
+        return url.startsWith('data:');
+    }
 });
 
 var OptionsPopup = React.createClass({
