@@ -1,28 +1,28 @@
 {
-  "manifest_version": 2,
+    "manifest_version": 2,
 
-  "name": "Camlistore Chrome Client",
-  "short_name": "C3",
-  "description": "This extension saves an image from the current page to your camlistore server",
-  "version": "0.2",
-  "version_name": "1.0 beta",
-  "minimum_chrome_version": "40", // min supported for options storage implementation: https://developer.chrome.com/extensions/optionsV2
+    "name": "Camlistore Chrome Client",
+    "short_name": "C3",
+    "description": "This extension saves an image from the current page to your camlistore server",
+    "version": "0.2",
+    "version_name": "1.0 beta",
+    "minimum_chrome_version": "40", // min supported for options storage implementation: https://developer.chrome.com/extensions/optionsV2
 
-  "options_ui": {
-    "page": "options.html",
-    "chrome_style": false
-  },
+    "options_ui": {
+        "page": "options.html",
+        "chrome_style": false
+    },
 
-  "background" : {
-    "persistent": true,
-    "scripts": ["background.js"]
-  },
+    "background" : {
+        "persistent": true,
+        "scripts": ["background.js"]
+    },
 
-  "permissions": [
-    "activeTab",
-    "contextMenus",
-    "http://*/",
-    "https://*/",
-    "storage"
-  ]
+    "permissions": [
+        "activeTab",
+        "contextMenus",
+        "http://*/",
+        "https://*/",
+        "storage"
+    ]
 }

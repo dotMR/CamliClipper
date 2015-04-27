@@ -1,5 +1,4 @@
 function onDOMContentLoaded() {
-
     React.render(
         React.createElement(OptionsPopup, {}),
         document.getElementById('root')

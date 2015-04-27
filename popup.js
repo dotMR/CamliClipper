@@ -10,7 +10,7 @@ function onDOMContentLoaded() {
 document.addEventListener('DOMContentLoaded', onDOMContentLoaded);
 
 /**
- * Retrieve saved 'options' from Chrome storage
+ * Retrieve configuration 'options' from Chrome storage
  */
 function fetchOptions() {
     return new Promise(function(resolve, reject) {
@@ -45,7 +45,8 @@ function discoverServer(options) {
                     }
                     reject(Error('Error during server discovery'));
                 } else {
-                    reject(Error(request.responseText));
+                    var message = (request.responseText) ? request.responseText : 'Server is not available';
+                    reject(Error(message));
                 }
             }
         }.bind(this);
@@ -61,7 +62,6 @@ function discoverServer(options) {
 function renderPopup(results) {
     var content;
 
-    // display caught error
     if (results instanceof Error) {
         content = React.createElement("div", { className: 'error' }, results.message);
     } else {

@@ -356,7 +356,6 @@ var ImageSubmitForm = React.createClass({
      * Request to load a url as a 'blob'
      *
      * @param {string} url of item to download as blob.
-     * @return {Promise} Promise of blob data.
      */
     getAsBlob_:function (url) {
         console.log('fetching blob from: ' + url);
@@ -383,11 +382,9 @@ var ImageSubmitForm = React.createClass({
 
     /**
      * Creates and returns a blob from a data URL (either base64 encoded or not).
-     *
-     * thanks: https://github.com/ebidel/filer.js/blob/master/src/filer.js#L137
+     *     thanks: https://github.com/ebidel/filer.js/blob/master/src/filer.js#L137
      *
      * @param {string} dataURL The data URL to convert.
-     * @return {Blob} A blob representing the array buffer data.
      */
     dataURLToBlob_: function(dataURL) {
         console.log('creating blob from provided dataURL');
