@@ -44,9 +44,9 @@ var Popup = React.createClass({
                 onError: this.setStatus,
                 onProgress: this.setStatus,
                 imgSrc: this.getQueryParam_('imgSrc'),
-                pageSrc: this.getQueryParam_('pageSrc'),
+                referrerUrl: this.getQueryParam_('referrer'),
                 serverConnection: this.props.serverConnection,
-                tags: this.props.config.defaultTags,
+                defaultTags: this.props.config.defaultTags,
             }),
             React.createElement(Status,
             {
@@ -91,12 +91,12 @@ var ImageSubmitForm = React.createClass({
     displayName: 'ImageSubmitForm',
 
     propTypes: {
+        defaultTags: React.PropTypes.string,
         imgSrc: React.PropTypes.string.isRequired,
         onError: React.PropTypes.func.isRequired,
         onProgress: React.PropTypes.func.isRequired,
-        pageSrc: React.PropTypes.string,
+        referrerUrl: React.PropTypes.string,
         serverConnection: React.PropTypes.object.isRequired,
-        tags: React.PropTypes.string,
     },
 
     componentWillMount: function() {
@@ -109,8 +109,8 @@ var ImageSubmitForm = React.createClass({
     getInitialState: function() {
         return {
             imgSrcInput: this.props.imgSrc,
-            pageSrcInput: this.props.pageSrc,
-            tagsInput: this.props.tags,
+            referrerInput: this.props.referrerUrl,
+            tagsInput: this.props.defaultTags,
             tagsInvalid: false
         };
     },
@@ -121,9 +121,9 @@ var ImageSubmitForm = React.createClass({
         });
     },
 
-    handlePageSrcChange_: function(event) {
+    handleReferrerChange_: function(event) {
         this.setState({
-            pageSrcInput: event.target.value
+            referrerInput: event.target.value
         });
     },
 
@@ -177,14 +177,14 @@ var ImageSubmitForm = React.createClass({
                     value: this.state.imgSrcInput
                 }
             ),
-            React.createElement("label", {htmlFor: 'pageSrc'}, 'Found on Page'),
+            React.createElement("label", {htmlFor: 'referrer'}, 'Found on Page'),
             React.createElement("input",
                 {
-                    onChange: this.handlePageSrcChange_,
-                    id: 'pageSrc',
+                    onChange: this.handleReferrerChange_,
+                    id: 'referrer',
                     type: 'text',
                     name: 'img',
-                    value: this.state.pageSrcInput
+                    value: this.state.referrerInput
                 }
             ),
             React.createElement("label", {htmlFor: 'tags'}, 'Additional Tags'),
@@ -303,10 +303,10 @@ var ImageSubmitForm = React.createClass({
     addPermanodeMetadata_: function(results) {
         var camliContent = this.addCamliContentRef_(results.permanoderef, results.fileref);
         var imgSrc = this.addImageSrcAttribute_(results.permanoderef, this.state.imgSrcInput);
-        var pageSrc = this.addPageSrcAttribute_(results.permanoderef, this.state.pageSrcInput);
+        var referrer = this.addReferrerAttribute_(results.permanoderef, this.state.referrerInput);
         var tags = this.addTags_(results);
 
-        return Promise.all([camliContent, imgSrc, pageSrc, tags]);
+        return Promise.all([camliContent, imgSrc, referrer, tags]);
     },
 
     updatePermanodeAttr_: function(ref, operation, attribute, value) {
@@ -326,8 +326,8 @@ var ImageSubmitForm = React.createClass({
         return this.updatePermanodeAttr_(permanoderef, "set-attribute", "imgSrc", value);
     },
 
-    addPageSrcAttribute_: function(permanoderef, value) {
-        return this.updatePermanodeAttr_(permanoderef, "set-attribute", "foundAt", value);
+    addReferrerAttribute_: function(permanoderef, value) {
+        return this.updatePermanodeAttr_(permanoderef, "set-attribute", "referrer", value);
     },
 
     addTags_: function(results) {
