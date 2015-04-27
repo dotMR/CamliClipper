@@ -1,26 +1,3 @@
-/*
-  TODO:
-    - Standardize commenting of js functions (// vs /*, params, returns, overviews?)
-    - Introduce Flux concepts to app functionality? (look at reflux or Marty)
-
-  ENHANCEMENTS:
-    - streamline dataURI processing (ex: no need to create UintArray twice)
-    - Support basic username/password auth
-        - review storage of sensitive information
-        - Need to add username:password like this:
-        request.setRequestHeader("Authorization", "Basic " + btoa("user:password"));
-    - should I save same fields for dataURL? (data:xxxx will be big)
-    - Review JS includes (can any be async / defered)?  https://developers.google.com/speed/docs/insights/BlockingJS
-    - Show Loading message / spinner while image is loading
-    - Start to think of this in terms of possible metadata to provide
-        - Maybe the options view is a table where you can enter custom metadata, or choose from pre-selected list
-    - OR configurable persistence of related attributes?
-        - in options you select the defaults you want (only save pageURl, always add this tag)
-        - add another express option to the menu ('Add to Camlistore' vs 'Add to Camlistore...') which just uses defaults (minimize clicks)
-*/
-
-document.addEventListener('DOMContentLoaded', onDOMContentLoaded);
-
 function onDOMContentLoaded() {
     fetchOptions()
     .then(discoverServer)
@@ -29,6 +6,8 @@ function onDOMContentLoaded() {
     })
     .then(renderPopup);
 }
+
+document.addEventListener('DOMContentLoaded', onDOMContentLoaded);
 
 /**
  * Retrieve saved 'options' from Chrome storage
