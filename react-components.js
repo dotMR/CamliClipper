@@ -421,16 +421,9 @@ var ImageSubmitForm = React.createClass({
 var OptionsPopup = React.createClass({
     displayName: 'OptionsPopup',
 
-    getInitialState: function() {
-        return {
-            statusMessage: ''
-        };
-    },
-
-    setStatus: function(message) {
-        this.setState({
-            statusMessage: message}
-        );
+    propTypes: {
+        config: React.PropTypes.object.isRequired,
+        status: React.PropTypes.string
     },
 
     render: function() {
@@ -443,7 +436,7 @@ var OptionsPopup = React.createClass({
             }),
             React.createElement(Status,
             {
-                message: this.state.statusMessage,
+                message: this.props.status,
             })
         );
     }
@@ -453,8 +446,8 @@ var OptionsForm = React.createClass({
     displayName: 'OptionsForm',
 
     propTypes: {
-        onError: React.PropTypes.func.isRequired,
-        onProgress: React.PropTypes.func.isRequired
+        // onError: React.PropTypes.func.isRequired,
+        // onProgress: React.PropTypes.func.isRequired
     },
 
     componentWillMount: function() {
@@ -477,11 +470,11 @@ var OptionsForm = React.createClass({
     },
 
     componentDidMount: function() {
-        this.fetchOptions_()
-        .then(this.updateForm_)
-        .catch(function(error) {
-            this.props.onError(error.message);
-        }.bind(this))
+        // this.fetchOptions_()
+        // .then(this.updateForm_)
+        // .catch(function(error) {
+        //     this.props.onError(error.message);
+        // }.bind(this))
     },
 
     fetchOptions_: function() {
