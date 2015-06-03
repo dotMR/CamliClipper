@@ -3,7 +3,7 @@ var Popup = React.createClass({
 
     propTypes: {
         config: React.PropTypes.shape({
-            url: React.PropTypes.string.isRequired,
+            serverUrl: React.PropTypes.string.isRequired,
             defaultTags: React.PropTypes.string
         }).isRequired,
         queryString: React.PropTypes.string.isRequired,
@@ -486,7 +486,7 @@ var OptionsForm = React.createClass({
 
     fetchOptions_: function() {
         return new Promise(function(resolve, reject) {
-            chrome.storage.sync.get(['url', 'defaultTags'], function(items) {
+            chrome.storage.sync.get(['serverUrl', 'defaultTags'], function(items) {
                 if (chrome.runtime.lastError) {
                     console.log('Error getting options');
                     reject(chrome.runtime.lastError) // TODO: how to forcibly test this error condition?
@@ -524,7 +524,7 @@ var OptionsForm = React.createClass({
 
     updateForm_: function(options) {
         this.setState({
-            serverUrl: options.url,
+            serverUrl: options.serverUrl,
             defaultTags: options.defaultTags
         }, this.runFormValidation_);
     },

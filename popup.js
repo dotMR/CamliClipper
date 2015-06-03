@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', onDOMContentLoaded);
  */
 function fetchOptions() {
     return new Promise(function(resolve, reject) {
-        chrome.storage.sync.get(['url', 'defaultTags'], function(items) {
+        chrome.storage.sync.get(['serverUrl', 'defaultTags'], function(items) {
             if (chrome.runtime.lastError) {
                 reject(chrome.runtime.lastError) // TODO: how to forcibly test this error condition?
             }
@@ -29,14 +29,14 @@ function fetchOptions() {
 function discoverServer(options) {
     return new Promise(function(resolve, reject) {
         var request = new XMLHttpRequest();
-        request.open('GET', options.url);
+        request.open('GET', options.serverUrl);
         request.setRequestHeader("Accept", "text/x-camli-configuration");
         request.onreadystatechange = function() {
             if (request.readyState === 4) {
                 if (request.status === 200) {
                     var json = JSON.parse(request.responseText);
                     if (json) {
-                        console.log('retrieved camlistore server discovery data from: ' + options.url);
+                        console.log('retrieved camlistore server discovery data from: ' + options.serverUrl);
                         var results = {
                             'discovery': json,
                             'options': options
@@ -69,7 +69,7 @@ function renderPopup(results) {
             {
               config: results.options,
               queryString: window.location.search.substring(1),
-              serverConnection: new cam.ServerConnection(results.options.url, results.discovery),
+              serverConnection: new cam.ServerConnection(results.options.serverUrl, results.discovery),
             }
         );
     }
